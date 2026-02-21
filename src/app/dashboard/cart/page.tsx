@@ -34,7 +34,7 @@ function endOfDay(d: Date) {
 
 
 /* =====================
-🔥 수정: 영업일 계산 함수 추가
+   영업일 계산 함수 추가
 ========================*/
 const countBusinessDays = (from: Date, to: Date) => {
   let count = 0;
@@ -42,12 +42,42 @@ const countBusinessDays = (from: Date, to: Date) => {
 
   while (cur <= to) {
     const day = cur.getDay();
-    if (day !== 0) count++; // 🔥 수정: 일요일 제외
+    if (day !== 0 && day !== 6) count++; 
     cur.setDate(cur.getDate() + 1);
   }
 
   return count;
 };
+
+
+function getMaxAllowedEndDate(start: Date) {
+  const day = start.getDay();
+  const result = new Date(start);
+
+  switch (day) {
+    case 1: // 월
+      result.setDate(result.getDate() + 2); // 수
+      break;
+    case 2: // 화
+      result.setDate(result.getDate() + 2); // 목
+      break;
+    case 3: // 수
+      result.setDate(result.getDate() + 2); // 금
+      break;
+    case 4: // 목
+      result.setDate(result.getDate() + 1); // 금
+      break;
+    case 5: // 금
+      result.setDate(result.getDate() + 3); // 다음주 월
+      break;
+    default:
+      return null; // 토/일은 애초에 선택 불가
+  }
+
+  return result;
+}
+
+
 /* =========================================
    헬퍼: 배열 chunk (TSX 안전)
 ========================================= */
@@ -96,7 +126,7 @@ export default function CartPage() {
   const router = useRouter();
   const [rangeError, setRangeError] = useState<string | null>(null);
 
-  // 🔥 추가: 교과목명 / 사용목적
+  // 교과목명 / 사용목적
   const [subjectName, setSubjectName] = useState("");
   const [purpose, setPurpose] = useState("");
 
@@ -149,12 +179,17 @@ export default function CartPage() {
     } catch {}
   };
 
-
-
   // ===== 대여 기간 상태/헬퍼 =====
   const [range, setRange] = useState<DateRange | undefined>();
-  const fromAt = range?.from ? startOfDay(range.from) : null;
-  const toAt = range?.to ? endOfDay(range.to) : null;
+
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const fromAt = range?.from ?? null;
+  const toAt = range?.to ?? null;
 
   useEffect(() => {
     if (!fromAt || !toAt) {
@@ -172,10 +207,24 @@ export default function CartPage() {
       return;
     }
 
-    const businessDays = countBusinessDays(fromAt, toAt);
+    // const businessDays = countBusinessDays(fromAt, toAt);
 
-    if (businessDays > 3) {
-      setRangeError("대여는 영업일 기준 최대 3일까지 가능합니다.");
+    // if (businessDays > 3) {
+    //   setRangeError("대여는 영업일 기준 최대 3일까지 가능합니다.");
+    //   return;
+    // }
+
+    const maxEndDate = getMaxAllowedEndDate(fromAt);
+
+    if (!maxEndDate) {
+      setRangeError("토요일과 일요일은 시작일로 선택할 수 없습니다.");
+      return;
+    }
+
+    if (toAt > maxEndDate) {
+      setRangeError(
+        `해당 시작일은 ${format(maxEndDate, "yyyy-MM-dd")} 까지만 대여 가능합니다.`
+      );
       return;
     }
 
@@ -267,7 +316,7 @@ const validRange = !!fromAt && !!toAt && !rangeError;
 
         toast({
           title: "예약 불가",
-          description: `이미 겹치는 대여 신청이 있습니다:\n- ${names.join("\n- ")}`,
+          description: `이미 겹치는 대여 신청이 있습니다`,
           variant: "destructive",
         });
         return;
@@ -404,14 +453,14 @@ const validRange = !!fromAt && !!toAt && !rangeError;
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0" align="start">
+
               <Calendar
               mode="range"
               selected={range}
               onSelect={setRange}
-              disabled={{
-                before: new Date(),
-                dayOfWeek: [0], // 🔥 수정: 일요일 클릭 금지
-              }}
+              disabled={(date) =>
+                date < today || date.getDay() === 0 || date.getDay() === 6
+              }
               initialFocus
             />
             </PopoverContent>
@@ -454,10 +503,8 @@ const validRange = !!fromAt && !!toAt && !rangeError;
         <Table>
           <TableHeader>
             <TableRow>
-              {/* <TableHead className="w-[120px]">사진</TableHead> */}
               <TableHead>관리번호</TableHead>
               <TableHead>장비명</TableHead>
-              {/* <TableHead className="text-right">액션</TableHead> */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -465,7 +512,6 @@ const validRange = !!fromAt && !!toAt && !rangeError;
               <TableRow key={item.id}>
                 <TableCell className="text-muted-foreground">{item.managementNumber}</TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                {/* <TableCell className="text-muted-foreground">{item.assetNumber}</TableCell> */}
                 <TableCell className="text-right">
                   <Button
                     variant="destructive"

@@ -6,8 +6,9 @@ export function RentCoreLogo() {
       src="/rentcore.png"
       alt="RentCore Logo"
       width={120}
-      height={32}
+      height={40}
       priority
+      style={{ width: "auto", height: "auto" }}
     />
   );
 }

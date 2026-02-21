@@ -143,15 +143,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        {/* <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="flex items-center gap-2 p-2">
-              <RentCoreLogo />
-            </Link>
-            <div className="flex items-center h-14 border-b px-4 bg-background"></div>
-            <SidebarTrigger />
-          </div>
-        </SidebarHeader> */}
 
         <SidebarHeader>
           <div className="flex items-center justify-between p-2">

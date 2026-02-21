@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-// 🆕 [추가] 거절 사유 입력 모달용
+// 거절 사유 입력 모달용
 import {
   Dialog,
   DialogContent,
@@ -86,6 +86,7 @@ export default function AdminRequestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAdminClaim, setIsAdminClaim] = useState<boolean | null>(null);
   const { setPendingCount } = usePendingRequest();
+  const [viewRejectTarget, setViewRejectTarget] = useState<RentalRequest | null>(null);
 
 
   // 🆕 [추가] 거절 사유 모달 상태 (❗ 컴포넌트 안)
@@ -207,7 +208,15 @@ export default function AdminRequestsPage() {
 
             <TableBody>
               {requests.map((req) => (
-                <TableRow key={req.id}>
+                <TableRow
+                  key={req.id}
+                  className={req.status === "REJECTED" ? "cursor-pointer hover:bg-muted/50" : ""}
+                  onClick={() => {
+                    if (req.status === "REJECTED") {
+                      setViewRejectTarget(req);
+                    }
+                  }}
+                >
                   <TableCell>
                     {req.createdAt
                         ? format(new Date(req.createdAt), "yyyy-MM-dd HH:mm")
@@ -331,6 +340,34 @@ export default function AdminRequestsPage() {
               }}
             >
               거절 확정
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔎 거절 사유 보기 모달 */}
+      <Dialog
+        open={!!viewRejectTarget}
+        onOpenChange={() => setViewRejectTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>거절 사유</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">
+              신청자: {viewRejectTarget?.user.name}
+            </div>
+
+            <div className="p-3 border rounded bg-muted/30 whitespace-pre-wrap">
+              {viewRejectTarget?.rejectionReason || "  "}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setViewRejectTarget(null)}>
+              닫기
             </Button>
           </DialogFooter>
         </DialogContent>

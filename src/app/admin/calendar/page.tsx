@@ -141,7 +141,8 @@ export default function CalendarPage() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
 
-  const [reservedEquipments, setReservedEquipments] = useState<string[]>([]);
+  // const [reservedEquipments, setReservedEquipments] = useState<string[]>([]);
+  const [reservedEquipments, setReservedEquipments] = useState<number[]>([]);
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -237,6 +238,33 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
+    if (!startDate || !endDate) return;
+
+    const fetchConflictsForCreate = async () => {
+      try {
+        const startStr = format(startDate, "yyyy-MM-dd");
+        const endStr = format(endDate, "yyyy-MM-dd");
+
+        const res = await fetch(
+          `http://localhost:4000/reservations/conflicts?start=${startStr}&end=${endStr}`
+        );
+
+        const data = await res.json();
+
+        // 🔥 문자열로 변환해서 저장
+        // setReservedEquipments(data.map((id: number) => String(id)));
+        setReservedEquipments(data); // map(String) 제거
+
+      } catch (err) {
+        console.error("충돌 조회 실패", err);
+      }
+    };
+
+    fetchConflictsForCreate();
+  }, [startDate, endDate]);
+
+
+  useEffect(() => {
   if (!editRange?.from || !editRange?.to) return;
 
   const fetchConflicts = async () => {
@@ -293,19 +321,18 @@ export default function CalendarPage() {
 
 
     try {
-      const [userRes, equipRes, reservedRes] = await Promise.all([
+      const [userRes, equipRes] = await Promise.all([
         fetch("http://localhost:4000/users"),
         fetch("http://localhost:4000/equipments"),
-        fetch(`http://localhost:4000/reservations/by-date?date=${info.dateStr}`)
       ]);
 
       const userData = await userRes.json();
       const equipData = await equipRes.json();
-      const reservedData = await reservedRes.json();
+      // const reservedData = await reservedRes.json();
 
       setUsers(userData);
       setEquipments(equipData);
-      setReservedEquipments(reservedData);
+      // setReservedEquipments(reservedData);
 
       setOpenCreateModal(true);
     } catch (err) {
@@ -364,6 +391,8 @@ export default function CalendarPage() {
 
 
   const handleCreateReservation = async () => {
+    console.log("보내는 startDate 원본:", startDate);
+    console.log("보내는 yyyy-MM-dd:", format(startDate!, "yyyy-MM-dd"));
     if (
     !selectedUser ||
     selectedEquipments.length === 0 ||
@@ -377,7 +406,7 @@ export default function CalendarPage() {
   }
 
   try {
-    await fetch("http://localhost:4000/reservations/manual", {
+    const res = await fetch("http://localhost:4000/reservations/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -389,6 +418,12 @@ export default function CalendarPage() {
         purpose, 
       }),
     });
+
+      // 🔥 이 부분 추가
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message);
+  }
 
 
     toast({ title: "예약 등록 완료" });
@@ -583,6 +618,8 @@ export default function CalendarPage() {
 
             <div className="border rounded p-3 h-40 overflow-y-auto space-y-2">
               {equipments.map((e) => {
+                // const isReserved = reservedEquipments.includes(e.id);
+                // const isReserved = reservedEquipments.includes(String(e.id));
                 const isReserved = reservedEquipments.includes(e.id);
                 const checked = selectedEquipments.includes(String(e.id));
 
