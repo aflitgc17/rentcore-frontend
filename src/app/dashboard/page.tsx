@@ -23,15 +23,9 @@ const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
   const fetchMe = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch("/api/auth/me", {
+        credentials: "include", 
+      });
 
       if (!res.ok) throw new Error("unauthorized");
 

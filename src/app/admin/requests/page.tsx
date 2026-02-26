@@ -29,40 +29,52 @@ import { format } from "date-fns";
 import { usePendingRequest } from "@/contexts/PendingRequestContext";
 
 
-// 타입
-
 type RequestStatus =
   | "REQUESTED"
   | "APPROVED"
   | "REJECTED";
 
+type RequestType = "RENTAL" | "FACILITY";
 
+type TypeFilter = "ALL" | RequestType;
 
-
-interface RentalRequestItem {
-  equipment: {
-    name: string;
-    managementNumber: string;
-  };
-}
-
-interface RentalRequest {
-  // id: string;
+interface BaseRequest {
   id: number;
+  type: RequestType;
   status: RequestStatus;
   createdAt: string;
-
   rejectionReason?: string;
-
   user: {
-    name: string; 
+    name: string;
     email: string;
     studentId?: string;
   };
-
-  items: RentalRequestItem[];
 }
 
+/** 장비 대여 요청 */
+interface RentalRequestItem {
+  equipment: { name: string; managementNumber: string };
+}
+
+interface RentalRequest extends BaseRequest {
+  type: "RENTAL";
+  items: RentalRequestItem[];
+  startDateTime: string;
+  endDateTime: string;
+  // from?: string; to?: string; // (있으면 표시용으로 넣어도 됨)
+}
+
+/** 시설 예약 요청 (예시: 네 DB에 맞게 필드명 조정) */
+interface FacilityRequest extends BaseRequest {
+  type: "FACILITY";
+  facility: {
+    name: string;
+  };
+  startDateTime: string; // 예: "2026-02-22T10:00:00Z"
+  endDateTime: string;
+}
+
+type AdminRequest = RentalRequest | FacilityRequest;
 
 const statusMap: Record<
   RequestStatus,
@@ -74,37 +86,38 @@ const statusMap: Record<
 };
 
 
-
-/* ======================================================
-  컴포넌트
-====================================================== */
-
 export default function AdminRequestsPage() {
-  const [requests, setRequests] = useState<RentalRequest[]>([]);
+  // const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [activeTab, setActiveTab] = useState<RequestStatus>("REQUESTED");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdminClaim, setIsAdminClaim] = useState<boolean | null>(null);
   const { setPendingCount } = usePendingRequest();
-  const [viewRejectTarget, setViewRejectTarget] = useState<RentalRequest | null>(null);
+  // const [viewRejectTarget, setViewRejectTarget] = useState<RentalRequest | null>(null);
+  const [viewRejectTarget, setViewRejectTarget] = useState<AdminRequest | null>(null);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [requests, setRequests] = useState<AdminRequest[]>([]);
 
 
-  // 🆕 [추가] 거절 사유 모달 상태 (❗ 컴포넌트 안)
-  const [rejectTarget, setRejectTarget] =
-    useState<RentalRequest | null>(null);
+
+  // 거절 사유 모달 상태
+  const [rejectTarget, setRejectTarget] = useState<AdminRequest | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const fetchRequests = async (status: RequestStatus) => {
+
+  const fetchRequests = async (status: RequestStatus, type: TypeFilter) => {
     try {
       setLoading(true);
       setError(null);
 
+      const q = new URLSearchParams();
+      q.set("status", status);
+      if (type !== "ALL") q.set("type", type);
+
       const res = await fetch(
-        `http://localhost:4000/admin/rental-requests?status=${status}`,
+        `/api/admin/requests?${q.toString()}`,
         {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+          credentials: "include",
         }
       );
 
@@ -120,62 +133,49 @@ export default function AdminRequestsPage() {
     }
   };
 
-  // useEffect에서는 fetchRequests만 호출
   useEffect(() => {
-    fetchRequests(activeTab);
-  }, [activeTab]);
+    fetchRequests(activeTab, typeFilter);
+  }, [activeTab, typeFilter]);
 
 
-  /* ===============================
-     승인
-  =============================== */
 
-  const approveAndStartRental = async (req: RentalRequest) => {
-    await fetch(`http://localhost:4000/rental-requests/${req.id}/approve`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`
-    },
-    body: JSON.stringify({ status: "APPROVED" })
-  });
+  const approveRequest = async (req: AdminRequest) => {
+    const url =
+      req.type === "RENTAL"
+        ? `/api/rental-requests/${req.id}/approve`
+        : `/api/facility-reservations/${req.id}/approve`; 
 
-  setPendingCount(prev => Math.max(prev - 1, 0));
-    await fetchRequests(activeTab); 
+    await fetch(url, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: "APPROVED" }),
+    });
+
+    setPendingCount(prev => Math.max(prev - 1, 0));
+    await fetchRequests(activeTab, typeFilter);
   };
 
-  /* ===============================
-     ❌ 거절 (사유 포함)
-  =============================== */
+  const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
+    const url =
+      req.type === "RENTAL"
+        ? `/api/rental-requests/${req.id}/reject`
+        : `/api/facility-reservations/${req.id}/reject`; 
 
-
-  const rejectRequestWithReason = async (
-  req: RentalRequest,
-  reason: string
-) => {
-  await fetch(
-    `http://localhost:4000/rental-requests/${req.id}/reject`,
-    {
+    await fetch(url, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
-      body: JSON.stringify({ 
-        status: "REJECTED", 
-        reason: reason,
-       }),
-    }
-  );
+      body: JSON.stringify({ status: "REJECTED", reason }),
+    });
 
-  setPendingCount(prev => Math.max(prev - 1, 0));
-  await fetchRequests(activeTab); // 다시 조회
+    setPendingCount(prev => Math.max(prev - 1, 0));
+    await fetchRequests(activeTab, typeFilter);
+  };
 
-};
-
-  /* ===============================
-     렌더
-  =============================== */
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">대여 요청 관리</h1>
@@ -188,11 +188,27 @@ export default function AdminRequestsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RequestStatus)}>
-        <TabsList>
-          <TabsTrigger value="REQUESTED">승인 대기</TabsTrigger>
-          <TabsTrigger value="APPROVED">승인 완료</TabsTrigger>
-          <TabsTrigger value="REJECTED">거절됨</TabsTrigger>
-        </TabsList>
+
+      <div className="flex items-center gap-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RequestStatus)}>
+          <TabsList>
+            <TabsTrigger value="REQUESTED">승인 대기</TabsTrigger>
+            <TabsTrigger value="APPROVED">승인 완료</TabsTrigger>
+            <TabsTrigger value="REJECTED">거절됨</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <Tabs
+          value={typeFilter}
+          onValueChange={(v) => setTypeFilter(v as TypeFilter)}
+        >
+          <TabsList>
+            <TabsTrigger value="ALL">전체</TabsTrigger>
+            <TabsTrigger value="RENTAL">장비</TabsTrigger>
+            <TabsTrigger value="FACILITY">시설</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        </div>
 
         <TabsContent value={activeTab}>
           <Table>
@@ -200,14 +216,23 @@ export default function AdminRequestsPage() {
               <TableRow>
                 <TableHead>신청일</TableHead>
                 <TableHead>신청자</TableHead>
-                <TableHead>항목</TableHead>
                 <TableHead>상태</TableHead>
+                <TableHead>유형</TableHead>
+                <TableHead>항목</TableHead>
                 <TableHead className="text-right">처리</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {requests.map((req) => (
+              {requests.map((req) => {
+                // console.log("type:", req.type);
+
+                if (req.type === "FACILITY") {
+                  // console.log("start:", req.startDateTime);
+                  // console.log("end:", req.endDateTime);
+                }
+
+                return (
                 <TableRow
                   key={req.id}
                   className={req.status === "REJECTED" ? "cursor-pointer hover:bg-muted/50" : ""}
@@ -233,44 +258,6 @@ export default function AdminRequestsPage() {
                   </TableCell>
 
                   <TableCell>
-                    {req.items?.map((item, idx) => {
-                      const eq = item.equipment;
-
-                      if (!eq) return <div key={idx}>삭제된 장비</div>;
-
-                      const hasNumber = !!eq.managementNumber;
-                      const hasName = !!eq.name;
-
-                      if (hasNumber && hasName) {
-                        return (
-                          <div key={idx}>
-                            {eq.managementNumber} ({eq.name})
-                          </div>
-                        );
-                      }
-
-                      if (hasNumber) {
-                        return (
-                          <div key={idx}>
-                            {eq.managementNumber}
-                          </div>
-                        );
-                      }
-
-                      if (hasName) {
-                        return (
-                          <div key={idx}>
-                            {eq.name}
-                          </div>
-                        );
-                      }
-
-                      return <div key={idx}>장비 정보 없음</div>;
-                    })}
-                  </TableCell>
-
-
-                  <TableCell>
                     {(() => {
                       const statusInfo = statusMap[req.status] ?? {
                         text: req.status,
@@ -285,15 +272,77 @@ export default function AdminRequestsPage() {
                     })()}
                   </TableCell>
 
+                  <TableCell>
+                    <Badge variant={req.type === "RENTAL" ? "secondary" : "outline"}>
+                      {req.type === "RENTAL" ? "장비" : "시설"}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell>
+                    {req.type === "RENTAL" ? (
+                      <div className="space-y-1">
+                        {req.items?.map((item, idx) => {
+                          const eq = item.equipment;
+                          if (!eq) return <div key={idx}>삭제된 장비</div>;
+
+                        const hasNumber = !!eq.managementNumber;
+                        const hasName = !!eq.name;
+
+                        if (hasNumber && hasName)
+                          return <div key={idx} className="font-medium">
+                            {eq.managementNumber} ({eq.name})
+                          </div>;
+
+                        if (hasNumber)
+                          return <div key={idx} className="font-medium">{eq.managementNumber}</div>;
+
+                        if (hasName)
+                          return <div key={idx} className="font-medium">{eq.name}</div>;
+
+                        return <div key={idx}>장비 정보 없음</div>;
+
+                      })}
+
+                      {/* 대여 기간 표시 */}
+                        {"startDateTime" in req && req.startDateTime && (
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(req.startDateTime), "yyyy-MM-dd")}
+                            {format(new Date(req.startDateTime), "yyyy-MM-dd") !==
+                              format(new Date(req.endDateTime), "yyyy-MM-dd") && (
+                              <>
+                                {" ~ "}
+                                {format(new Date(req.endDateTime), "yyyy-MM-dd")}
+                              </>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  ) : (
+
+                      <div className="space-y-1">
+                        <div className="font-medium">{req.facility?.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(req.startDateTime), "yyyy-MM-dd HH:mm")} ~{" "}
+                          {format(new Date(req.endDateTime), "HH:mm")}
+
+                          
+                        </div>
+                      </div>
+                    )}
+                  </TableCell>
+
                   <TableCell className="text-right space-x-2">
                     {req.status === "REQUESTED" && (
                       <>
-                        <Button
-                          size="sm"
-                          onClick={() => approveAndStartRental(req)}
+
+                        <Button 
+                          size="sm" 
+                          onClick={() => 
+                          approveRequest(req)}
                         >
                           승인
                         </Button>
+
                         <Button
                           size="sm"
                           variant="destructive"
@@ -308,13 +357,14 @@ export default function AdminRequestsPage() {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TabsContent>
       </Tabs>
 
-      {/* 🆕 [추가] 거절 사유 입력 모달 */}
+      {/* 거절 사유 입력 모달 */}
       <Dialog open={!!rejectTarget} onOpenChange={() => setRejectTarget(null)}>
         <DialogContent>
           <DialogHeader>
@@ -345,7 +395,7 @@ export default function AdminRequestsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 🔎 거절 사유 보기 모달 */}
+      {/* 거절 사유 보기 모달 */}
       <Dialog
         open={!!viewRejectTarget}
         onOpenChange={() => setViewRejectTarget(null)}
@@ -361,7 +411,9 @@ export default function AdminRequestsPage() {
             </div>
 
             <div className="p-3 border rounded bg-muted/30 whitespace-pre-wrap">
-              {viewRejectTarget?.rejectionReason || "  "}
+              {viewRejectTarget?.rejectionReason 
+                ?? (viewRejectTarget as any)?.rejectReason 
+                ?? "거절 사유 없음"}
             </div>
           </div>
 

@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  
+
   images: {
     remotePatterns: [
       {
@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
         hostname: "placehold.co",
       },
     ],
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://localhost:4000/:path*",
+      },
+    ];
   },
 };
 

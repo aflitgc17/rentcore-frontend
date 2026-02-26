@@ -27,7 +27,7 @@ export default function AddEquipmentPage() {
       const imageUrl = await uploadToCloudinary(file);
 
       const id = uuidv4(); // 장비 ID
-      await fetch("http://localhost:4000/equipments", {
+      await fetch("/api/equipments", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

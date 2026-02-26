@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-// import { PendingRequestProvider } from "@/contexts/PendingRequestContext";
 import { usePendingRequest } from "@/contexts/PendingRequestContext";
 
 
@@ -50,28 +49,36 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
 
 
-const { pendingCount, setPendingCount } = usePendingRequest();
-{pendingCount > 0 && (
-  <Badge variant="destructive">
-    {pendingCount}
-  </Badge>
-)}
+ const { pendingCount, setPendingCount } = usePendingRequest();
+// {pendingCount > 0 && (
+//   <Badge variant="destructive">
+//     {pendingCount}
+//   </Badge>
+// )}
 
 useEffect(() => {
   const fetchPendingCount = async () => {
     try {
-      const res: Response = await fetch(
-        "http://localhost:4000/admin/rental-requests/count",
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      if (!res.ok) return;
+      const [rentalRes, facilityRes] = await Promise.all([
+        fetch("http://localhost:4000/admin/rental-requests/count", {
+          credentials: "include",
+        }),
+        fetch("http://localhost:4000/admin/facility-requests/count", {
+          credentials: "include",
+        }),
+      ]);
 
-      const data = await res.json();
-      setPendingCount(data.count ?? 0);
+      if (!rentalRes.ok || !facilityRes.ok) return;
+
+      const rentalData = await rentalRes.json();
+      const facilityData = await facilityRes.json();
+
+      const total =
+        (rentalData.count ?? 0) +
+        (facilityData.count ?? 0);
+
+      setPendingCount(total);
+
     } catch (e) {
       console.error("pending count 불러오기 실패", e);
     }
@@ -80,43 +87,12 @@ useEffect(() => {
   fetchPendingCount();
 }, [setPendingCount]);
 
-// const fetchPendingCount = async () => {
-//   try {
-//     const res = await fetch(
-//       "http://localhost:4000/admin/rental-requests/count",
-//       {
-//         headers: {
-//           Authorization: `Bearer ${localStorage.getItem("token")}`,
-//         },
-//       }
-//     );
-
-//     if (!res.ok) return;
-
-//     const data = await res.json();
-//     setPendingCount(data.count);
-//   } catch (err) {
-//     console.error("카운트 불러오기 실패");
-//   }
-// };
-
-// useEffect(() => {
-//   fetchPendingCount();
-// }, []);
-
-
 
 useEffect(() => {
   async function checkAdmin() {
-    const res = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
-  {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  }
-);
-
+    const res = await fetch("/api/auth/me", {
+      credentials: "include",
+    });
 
     if (!res.ok) {
       router.replace("/login");
@@ -143,19 +119,6 @@ useEffect(() => {
 }, [router]);
 
 
-    // useEffect(() => {
-    // if (!user) return;
-
-    // async function fetchCount() {
-    //     const res = await fetch("/api/admin/pending-count");
-    //     const data = await res.json();
-    //     setPendingRequestCount(data.count);
-    // }
-
-    // fetchCount();
-    // }, [user]);
-
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -173,8 +136,9 @@ useEffect(() => {
   
     <SidebarProvider>
       <Sidebar collapsible="icon">
+
         {/* ===============================
-            🧭 사이드바 헤더
+            사이드바 헤더
         =============================== */}
 
         <SidebarHeader>
@@ -188,7 +152,7 @@ useEffect(() => {
         </SidebarHeader>
 
         {/* ===============================
-            📂 사이드바 메뉴
+             사이드바 메뉴
         =============================== */}
         <SidebarContent className="p-2">
           <div className="px-4 py-2 text-sm font-semibold text-muted-foreground">
@@ -215,7 +179,7 @@ useEffect(() => {
             </SidebarMenuItem>
 
             {/* ===============================
-                🔔 [수정] 대여 요청 + 숫자 배지
+                대여 요청 + 숫자 배지
             =============================== */}
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
@@ -223,7 +187,7 @@ useEffect(() => {
                   href="/admin/requests"
                   className="flex items-center justify-between w-full"
                 >
-                  {/* 🔹 왼쪽 묶음 */}
+                  {/* 왼쪽 묶음 */}
                   <div className="flex items-center gap-2">
                     <Bell className="w-4 h-4 shrink-0" />
                     <span>대여 요청</span>
@@ -237,8 +201,6 @@ useEffect(() => {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-
-
 
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="장비 대여 캘린더">
@@ -274,7 +236,7 @@ useEffect(() => {
         </SidebarContent>
 
         {/* ===============================
-            👤 사이드바 푸터
+             사이드바 푸터
         =============================== */}
         <SidebarFooter>
           <Separator className="my-2" />
@@ -297,12 +259,13 @@ useEffect(() => {
             <SidebarMenuItem>
               <SidebarMenuButton
                 tooltip="로그아웃"
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  window.location.href = "/login";
+                onClick={async () => {
+                  await fetch("/api/auth/logout", {
+                    method: "POST",
+                    credentials: "include",
+                  });
+                  router.replace("/login");
                 }}
-
-
               >
                 <LogOut />
                 <span>로그아웃</span>
@@ -313,7 +276,7 @@ useEffect(() => {
       </Sidebar>
 
       {/* ===============================
-          📄 메인 콘텐츠 영역
+          메인 콘텐츠 영역
       =============================== */}
       <SidebarInset className="flex flex-col">
         <div className="flex-1 p-4 sm:p-6 lg:p-8">

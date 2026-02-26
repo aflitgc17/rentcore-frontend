@@ -126,3 +126,55 @@
     @apply bg-background text-foreground;
   }
 }
+
+.weekend-disabled {
+  background-color: #f3f4f6 !important;
+  pointer-events: none !important;
+}
+
+.weekend-disabled .fc-daygrid-day-number {
+  color: #9ca3af !important;
+}
+
+.fc .fc-daygrid-body {
+  height: auto !important;
+}
+
+.fc .fc-daygrid-body-balanced {
+  height: auto !important;
+}
+
+.fc .fc-daygrid-body table {
+  height: auto !important;
+}
+
+/* 셀 전체를 기준으로 배지 중앙 고정 */
+.fc .fc-daygrid-day-frame {
+  position: relative;
+}
+
+/* 셀 전체(프레임)를 기준으로 배지 중앙 고정 */
+.fc .fc-daygrid-day-frame {
+  position: relative;
+}
+
+.fc .fc-daygrid-day[data-count]:not([data-count=""]) .fc-daygrid-day-frame::after {
+  content: attr(data-count);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  background: #9ca3af;
+  color: #fff;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  white-space: nowrap;
+
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}

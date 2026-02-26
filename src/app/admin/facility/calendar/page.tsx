@@ -1,278 +1,626 @@
 "use client";
 
 import FullCalendar from "@fullcalendar/react";
-import type { EventInput } from "@fullcalendar/core";
+import { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
+
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
 
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/simple-toast";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
-/* =========================
-   유틸
-========================= */
-function toDate(v: any): Date | null {
-  if (!v && v !== 0) return null;
-  if (v instanceof Date) return v;
-//   if (v instanceof Timestamp) return v.toDate();
-  if (typeof v === "number") return new Date(v);
-  const d = new Date(v); // ISO 문자열 등
-  return isNaN(d.getTime()) ? null : d;
-}
-
-// FullCalendar의 end는 "배타"라서 마지막 날까지 칠하려면 +1일
-function addOneDay(d: Date | null) {
-  if (!d) return null;
-  const nd = new Date(d);
-  nd.setDate(nd.getDate() + 1);
-  return nd;
-}
-
-// 여러 후보 키 중 첫 번째 존재하는 값을 반환
-function pick<T = any>(obj: Record<string, any>, keys: string[], fallback?: T): T | undefined {
-  for (const k of keys) {
-    if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
-  }
-  return fallback;
-}
-
-// 간단한 이메일 형식 판별
-function toEmail(v: any): string | null {
-  const s = String(v ?? "").trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
-}
-
-// KST 기준으로 YYYY-MM-DD HH:MM 표시
-const KST = "Asia/Seoul";
-function fmtYMDHM(d: Date | null) {
-  if (!d) return "-";
-  // 안전하게 Date로 보정
-  const dd = new Date(d);
-  const y = dd.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: KST,
-  }).replace(/\.\s?/g, "-").replace(/-$/, ""); // "2025. 08. 26." → "2025-08-26"
-
-  const t = dd.toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: KST,
-  });
-  return `${y} ${t}`;
-}
-
-
-/* =========================
-   타입/상수
-========================= */
 type FCEvent = {
   id: string;
   title: string;
-  start: Date | string | null;
-  end?: Date | string | null;
+  start: Date | string;
   allDay?: boolean;
-  color?: string;
   extendedProps?: {
-    status?: string;
-    requester?: string;
-    facilityId?: string;
-    facilityName?: string;
-    purpose?: string;
-    docId?: string;
-    rawFrom?: Date | null;
-    rawTo?: Date | null;
-    [key: string]: any;
+    reservations: any[];
   };
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  pending: "orange",
-  requested: "orange",
-  approved: "blue",
-  reserved: "blue",
-  inuse: "red",
-  using: "red",
-  finished: "gray",
-  returned: "gray",
-  canceled: "silver",
-  rejected: "silver",
 };
 
 export default function FacilityCalendarPage() {
+  const { toast } = useToast();
+  const { profile, loading } = useCurrentUser();
+
   const [events, setEvents] = useState<FCEvent[]>([]);
-  const [filterText, setFilterText] = useState("");
+  const [openDayModal, setOpenDayModal] = useState(false);
+  const [dayReservations, setDayReservations] = useState<any[]>([]);
+
   const [openEventModal, setOpenEventModal] = useState(false);
-  const [clickedEvent, setClickedEvent] = useState<FCEvent | null>(null);
-  
-  useEffect(() => {
-  const fetchReservations = async () => {
+  const [clickedReservation, setClickedReservation] = useState<any>(null);
+
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+
+  const [openCreateModal, setOpenCreateModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
+
+  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedFacility, setSelectedFacility] = useState("");
+
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const [users, setUsers] = useState<any[]>([]);
+  const [facilities, setFacilities] = useState<any[]>([]);
+
+  const timeOptions = Array.from({ length: 10 }, (_, i) =>
+    `${String(i + 9).padStart(2, "0")}:00`
+  );
+
+  const handleCreateReservation = async () => {
+    if (!selectedUser || !selectedFacility || !startDate || !endDate) {
+      toast({ title: "모든 항목을 입력하세요", variant: "destructive" });
+      return;
+    }
+
+    if (!selectedDate) return;
+
+    const baseDate = format(selectedDate, "yyyy-MM-dd");
+
+    const start = new Date(`${baseDate}T${startTime}`);
+    const end = new Date(`${baseDate}T${endTime}`);
+
     try {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch("http://localhost:4000/facility-reservations", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      await fetch("/api/facility-reservations/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: Number(selectedUser),
+          facilityId: Number(selectedFacility),
+          startAt: start,
+          endAt: end,
+        }),
       });
 
-      if (!res.ok) {
-        throw new Error("예약 데이터 불러오기 실패");
-      }
-
-      const data = await res.json();
-
-      const list: FCEvent[] = data.map((item: any) => {
-        const fromRaw = toDate(item.startDate);
-        const toRaw = toDate(item.endDate);
-
-        const status = String(item.status).toLowerCase();
-        const color = STATUS_COLOR[status] || "blue";
-
-        return {
-          id: item.id,
-          title: `${item.facility.name} · ${item.user.email}`,
-          start: fromRaw,
-          end: addOneDay(toRaw || fromRaw),
-          allDay: true,
-          color,
-          extendedProps: {
-            status,
-            requesterEmail: item.user.email,
-            facilityName: item.facility.name,
-            facilityId: item.facilityId,
-            purpose: item.purpose,
-            rawFrom: fromRaw,
-            rawTo: toRaw,
-          },
-        };
-      });
-
-      setEvents(list);
-
-    } catch (err) {
-      console.error(err);
+      toast({ title: "예약 등록 완료" });
+      setOpenCreateModal(false);
+      fetchCalendar();
+    } catch {
+      toast({ title: "등록 실패", variant: "destructive" });
     }
   };
 
-  fetchReservations();
-}, []);
+
+  const handleUpdateReservation = async () => {
+    if (!clickedReservation) return;
+
+    if (!selectedDate) return;
+
+    const baseDate = format(selectedDate, "yyyy-MM-dd");
+
+    const start = new Date(`${baseDate}T${startTime}`);
+    const end = new Date(`${baseDate}T${endTime}`);
+
+    await fetch(`/api/facility-reservations/${clickedReservation.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startAt: start,
+        endAt: end,
+        facilityId: Number(selectedFacility),
+      }),
+    });
+
+    toast({ title: "수정 완료" });
+
+    setOpenEditModal(false);
+    setOpenEventModal(false);
+    fetchCalendar();
+  };
+
+  /* ==============================
+     날짜별 그룹 구조로 변경
+  ============================== */
+
+  const fetchCalendar = async () => {
+    try {
+      const res = await fetch("/api/facility-reservations", {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      const approved = data.filter(
+        (r: any) => r.status === "APPROVED" || r.status === "REQUESTED"
+      );
+
+      const grouped: Record<string, any[]> = {};
+
+      approved.forEach((r: any) => {
+        const key = format(new Date(r.startAt), "yyyy-MM-dd");
+
+        if (!grouped[key]) {
+          grouped[key] = [];
+        }
+
+        grouped[key].push(r);
+      });
+
+      const list: FCEvent[] = Object.entries(grouped).map(
+        ([date, reservations]) => ({
+          id: date,
+          title: `${reservations.length}건`,
+          start: date,    
+          allDay: true,
+          extendedProps: { reservations },
+        })
+      );
+
+      setEvents(list);
+    } catch (err) {
+      console.error("시설 캘린더 로딩 실패", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!loading && profile?.role === "ADMIN") {
+      fetchCalendar();
+    }
+  }, [loading, profile]);
+
+  useEffect(() => {
+    const loadBaseData = async () => {
+      const [userRes, facilityRes] = await Promise.all([
+        fetch("/api/users"),
+        fetch("/api/facilities"),
+      ]);
+
+      setUsers(await userRes.json());
+      setFacilities(await facilityRes.json());
+    };
+
+    loadBaseData();
+  }, []);
 
   
 
-  // 텍스트 필터 (시설/신청자/목적)
-  const filteredEvents = useMemo(() => {
-    if (!filterText.trim()) return events;
-    const q = filterText.toLowerCase();
-    return events.filter((e) => {
-      const t = `${e.title} ${(e.extendedProps?.purpose || "")}`.toLowerCase();
-      return t.includes(q);
-    });
-  }, [events, filterText]);
+  if (loading) return null;
 
-  const renderEventContent = (arg: any) => {
-    const [facility, who] = String(arg.event.title).split(" · ");
-    return (
-      <div className="leading-tight">
-        <div className="font-medium truncate">{facility}</div>
-        <div className="text-xs opacity-80 truncate">👤 {who}</div>
-      </div>
-    );
-  };
-
-  const handleEventClick = (info: any) => {
-    const ev = info.event;
-    const e: FCEvent = {
-      id: ev.id,
-      title: ev.title,
-      start: (ev.start ?? null) as Date | null,
-      end: (ev.end ?? null) as Date | null,
-      allDay: ev.allDay,
-      color: ev.backgroundColor,
-      extendedProps: ev.extendedProps as FCEvent["extendedProps"],
-    };
-    setClickedEvent(e);
-    setOpenEventModal(true);
-  };
+  if (!profile || profile.role !== "ADMIN") {
+    return <div className="p-6">접근 권한이 없습니다.</div>;
+  }
 
   return (
-    <div className="p-6">
-      {/* 헤더 & 범례 */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="px-6 pt-2 pb-4">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">시설 예약 캘린더</h1>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "orange" }} />
-            <span>예약됨</span>
-          </div>
-        </div>
       </div>
 
-      {/* 캘린더 */}
+      {/* ==============================
+          FullCalendar 단순화
+      ============================== */}
+
       <FullCalendar
-        plugins={[dayGridPlugin, interactionPlugin]}
+        plugins={[dayGridPlugin, interactionPlugin]} // 🔥 timeGrid 제거
         initialView="dayGridMonth"
-        events={filteredEvents as EventInput[]}
-        eventContent={renderEventContent}
-        eventClick={handleEventClick}
-        height="80vh"
+        locale="ko"
+        headerToolbar={{
+          left: "",
+          center: "title",
+          right: "today prev,next",
+        }}
+        buttonText={{
+          today: "오늘",
+        }}
+        events={events as EventInput[]}
+        height="auto"
+        expandRows={true}
         eventDisplay="block"
+        eventBackgroundColor="transparent"
+        eventBorderColor="transparent"
+        dayCellContent={(arg) => arg.date.getDate()}
+
+        eventContent={(arg) => (
+          <div className="flex justify-center items-center">
+            <span
+              className="
+                px-3 py-1
+                text-xs font-semibold
+                rounded-full
+                bg-black
+                text-white
+              "
+            >
+              {arg.event.title}
+            </span>
+          </div>
+        )}
+
+        dateClick={(info) => {
+          const clicked = new Date(info.dateStr);
+
+          setSelectedDate(clicked);
+          setStartDate(clicked);
+
+          const next = new Date(clicked);
+          next.setDate(clicked.getDate() + 1);
+          setEndDate(next);
+
+          setOpenCreateModal(true);
+        }}
+
+        eventClick={(info) => {
+          const reservations =
+            info.event.extendedProps?.reservations ?? [];
+
+          setDayReservations(reservations);
+          setOpenDayModal(true);
+        }}
       />
 
-      {/* 상세 모달 */}
-      <Dialog open={openEventModal} onOpenChange={setOpenEventModal}>
-        <DialogContent className="sm:max-w-[560px]">
+      <Dialog open={openCreateModal} onOpenChange={setOpenCreateModal}>
+        <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>시설 예약 상세</DialogTitle>
-            <DialogDescription>선택한 일정의 상세 정보입니다.</DialogDescription>
+            <DialogTitle>관리자 직접 예약 등록</DialogTitle>
           </DialogHeader>
 
-          {clickedEvent && (() => {
-            const [facility, who] = clickedEvent.title.split(" · ");
-            const ext = clickedEvent.extendedProps || {};
-            const from = ext.rawFrom ? new Date(ext.rawFrom) : (clickedEvent.start ? new Date(clickedEvent.start as Date) : null);
-            const to = ext.rawTo ? new Date(ext.rawTo) : (clickedEvent.end ? new Date(clickedEvent.end as Date) : null);
+          <div className="space-y-4">
 
-            return (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">시설</p>
-                  <p className="font-medium">{ext.facilityName || facility}</p>
-                  {ext.facilityId && <p className="text-xs">ID: {ext.facilityId}</p>}
-                </div>
+            {/* 사용자 선택 */}
+            <select
+              className="w-full border p-2 rounded"
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+            >
+              <option value="">사용자 선택</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+            </select>
 
-                <div>
-                  <p className="text-sm text-muted-foreground">신청자 (이메일)</p>
-                  <p>{ext.requesterEmail || "-"}</p>
-                </div>
+            {/* 시설 선택 */}
+            <select
+              className="w-full border p-2 rounded"
+              value={selectedFacility}
+              onChange={(e) => setSelectedFacility(e.target.value)}
+            >
+              <option value="">시설 선택</option>
+              {facilities.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+
+            {/* 날짜 선택 */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="w-full border p-2 rounded text-left">
+                  {selectedDate
+                    ? format(selectedDate, "yyyy-MM-dd")
+                    : "예약 날짜 선택"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate ?? undefined}
+                  onSelect={(date) => setSelectedDate(date ?? null)}
+                />
+              </PopoverContent>
+            </Popover>
 
 
-                {ext.purpose && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">목적</p>
-                    <p className="whitespace-pre-wrap">{ext.purpose}</p>
-                  </div>
-                )}
 
-                <div>
-                  <p className="text-sm text-muted-foreground">기간</p>
-                  <p>{fmtYMDHM(from)}</p>
-                  <p>{fmtYMDHM(to)}</p>
-                </div>
-              </div>
-            );
-          })()}
+            {/* 시작 시간 */}
+            <select
+              className="w-full border p-2 rounded"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            >
+              {timeOptions.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+
+            {/* 종료 시간 */}
+            <select
+              className="w-full border p-2 rounded"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            >
+              {timeOptions.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+
+          </div>
 
           <DialogFooter>
-            <Button onClick={() => setOpenEventModal(false)}>닫기</Button>
+            <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleCreateReservation}>
+              등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==============================
+          날짜별 예약 목록 모달
+      ============================== */}
+
+      <Dialog open={openDayModal} onOpenChange={setOpenDayModal}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>해당 날짜 예약 목록</DialogTitle>
+            <DialogDescription>
+              신청 순서대로 표시됩니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {dayReservations.map((r, idx) => (
+              <div
+                key={r.id}
+                className="p-3 border rounded cursor-pointer hover:bg-gray-50"
+                onClick={() => {
+                  setClickedReservation(r);
+                  setOpenDayModal(false);
+                  setOpenEventModal(true);
+                }}
+              >
+                <p className="font-semibold">
+                  {idx + 1}. {r.user?.name}
+                  {r.user?.studentId && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({r.user.studentId})
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {r.facility?.name}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setOpenDayModal(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==============================
+          상세 모달
+      ============================== */}
+
+      <Dialog open={openEventModal} onOpenChange={setOpenEventModal}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>예약 상세</DialogTitle>
+            <DialogDescription>
+              선택한 일정의 상세 정보입니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          {clickedReservation && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">신청자</p>
+                <p className="font-medium">
+                  {clickedReservation.user?.name}
+                  {clickedReservation.user?.studentId && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({clickedReservation.user.studentId})
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">시설</p>
+                <p className="font-medium">
+                  {clickedReservation.facility?.name}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">기간</p>
+                <p className="font-medium">
+                  {format(
+                    new Date(clickedReservation.startAt),
+                    "yyyy/MM/dd HH:mm"
+                  )}{" "}
+                  ~{" "}
+                  {format(
+                    new Date(clickedReservation.endAt),
+                    "yyyy/MM/dd HH:mm"
+                  )}
+                </p>
+              </div>
+
+              {clickedReservation.subjectName && (
+                <div>
+                  <p className="text-sm text-muted-foreground">교과목명</p>
+                  <p className="font-medium">
+                    {clickedReservation.subjectName}
+                  </p>
+                </div>
+              )}
+
+              {clickedReservation.purpose && (
+                <div>
+                  <p className="text-sm text-muted-foreground">목적</p>
+                  <p>{clickedReservation.purpose}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSelectedDate(new Date(clickedReservation.startAt));
+
+                const start = new Date(clickedReservation.startAt);
+                const end = new Date(clickedReservation.endAt);
+
+                setStartTime(format(start, "HH:mm"));
+                setEndTime(format(end, "HH:mm"));
+
+                setSelectedFacility(clickedReservation.facility?.id);
+                setSelectedFacility(String(clickedReservation.facility?.id));
+                setOpenEditModal(true);
+              }}
+            >
+              수정
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={() => setOpenDeleteConfirm(true)}
+            >
+              삭제
+            </Button>
+
+            <Button onClick={() => setOpenEventModal(false)}>
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>예약 수정</DialogTitle>
+          </DialogHeader>
+
+          <select
+            className="w-full border p-2 rounded"
+            value={selectedFacility}
+            onChange={(e) => setSelectedFacility(e.target.value)}
+          >
+            <option value="">시설 선택</option>
+            {facilities.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="w-full border p-2 rounded text-left">
+                {selectedDate
+                  ? format(selectedDate, "yyyy-MM-dd")
+                  : "예약 날짜 선택"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate ?? undefined}
+                onSelect={(date) => setSelectedDate(date ?? null)}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <select
+            className="w-full border p-2 rounded"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          >
+            {timeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="w-full border p-2 rounded"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+          >
+            {timeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenEditModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleUpdateReservation}>
+              수정 완료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==============================
+         삭제 확인 모달
+      ============================== */}
+
+      <Dialog open={openDeleteConfirm} onOpenChange={setOpenDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>예약 삭제</DialogTitle>
+            <DialogDescription>
+              정말 삭제하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenDeleteConfirm(false)}
+            >
+              취소
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!clickedReservation) return;
+
+                await fetch(
+                  `/api/facility-reservations/${clickedReservation.id}`,
+                  { method: "DELETE" }
+                );
+
+                toast({ title: "삭제 완료" });
+
+                setOpenDeleteConfirm(false);
+                setOpenEventModal(false);
+                fetchCalendar();
+              }}
+            >
+              삭제
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -7,6 +7,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMemo } from "react";
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogFooter, DialogClose,
@@ -23,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import * as XLSX from "xlsx";
+import { Calendar } from "@/components/ui/calendar";
 
 import { useToast } from "@/components/ui/simple-toast";
 
@@ -44,7 +47,6 @@ interface Equipment {
   accessories?: string;     // (부속품)
   note?: string;            // (비고)
   status: EquipmentStatus;
-  // imageUrl: string;
   category: typeof CATEGORY_OPTIONS[number] | "";
   usageInfo?: string;
 }
@@ -67,7 +69,20 @@ const initialFormData: Omit<Equipment, "id"> = {
   usageInfo: "",
 };
 
-// ------------------ 컴포넌트 ------------------
+const enumerateDates = (from: Date, to: Date): Date[] => {
+    const start = new Date(from);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(to);
+    end.setHours(0, 0, 0, 0);
+
+    const arr: Date[] = [];
+    for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+      arr.push(new Date(cur));
+    }
+    return arr;
+  };
+
 export default function AdminEquipmentPage() {
   const { toast } = useToast();
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
@@ -85,20 +100,56 @@ export default function AdminEquipmentPage() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false); // ⭐ 추가
-  const [detailItem, setDetailItem] = useState<Equipment | null>(null); // ⭐ 추가
+  const [isDetailOpen, setIsDetailOpen] = useState(false); 
+  const [detailItem, setDetailItem] = useState<Equipment | null>(null); 
+
+  const [detailTab, setDetailTab] = useState<"info" | "calendar">("info");
+  const [reservations, setReservations] = useState<
+    { from: Date; to: Date }[]
+  >([]);
+
+  
+
+  const reservedDates = useMemo(() => {
+    if (detailTab !== "calendar") return [];
+    return reservations.flatMap(({ from, to }) =>
+      enumerateDates(from, to)
+    );
+  }, [reservations, detailTab]);
 
 
-  const handleDetailOpen = (item: Equipment) => {
+  const defaultMonth =
+    reservedDates.length > 0
+      ? new Date(Math.min(...reservedDates.map((d) => d.getTime())))
+      : new Date();
+
+
+  const handleDetailOpen = async (item: Equipment) => {
     setDetailItem(item);
     setIsDetailOpen(true);
+    setDetailTab("info");
+    setReservations([]);
+
+    try {
+      const res = await fetch(`/api/equipments/${item.id}/reservations`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      setReservations(
+        data.map((r: any) => ({
+          from: new Date(r.startDate),
+          to: new Date(r.endDate),
+        }))
+      );
+    } catch (err) {
+      console.error("예약 조회 실패", err);
+    }
   };
-
-
 
   const fetchEquipments = async () => {
   try {
-    const res = await fetch("http://localhost:4000/equipments");
+    const res = await fetch("/api/equipments");
     const data = await res.json();
 
     const reverseStatusMap: Record<string, EquipmentStatus> = {
@@ -108,7 +159,7 @@ export default function AdminEquipmentPage() {
     };
 
     const mapped: Equipment[] = data.map((item: any) => ({
-      id: String(item.id), // ✅ 숫자 → 문자열 변환 (중요)
+      id: String(item.id), 
       name: item.name,
       managementNumber: item.managementNumber,
       assetNumber: item.assetNumber,         
@@ -116,7 +167,6 @@ export default function AdminEquipmentPage() {
       accessories: item.accessories,         
       note: item.note,                      
       category: item.category,
-      // imageUrl: item.imageUrl,
       usageInfo: item.usageInfo,
       status: reverseStatusMap[item.status] ?? "available",
     }));
@@ -145,20 +195,20 @@ export default function AdminEquipmentPage() {
           i.managementNumber.toLowerCase().includes(term);
 
         const matchesCategory =
-          selectedCategory === "all" ||  // ⭐ 추가
-          i.category === selectedCategory; // ⭐ 추가
+          selectedCategory === "all" ||  
+          i.category === selectedCategory; 
 
-        return matchesSearch && matchesCategory; // ⭐ 수정
+        return matchesSearch && matchesCategory; 
       })
     );
   }, [searchTerm, equipmentList, selectedCategory]); 
 
   // ------------------ 삭제 ------------------
-  const handleDelete = async (id: string) => { // ⭐ 추가
+  const handleDelete = async (id: string) => { 
     if (!confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      const res = await fetch(`http://localhost:4000/equipments/${id}`, {
+      const res = await fetch(`/api/equipments/${id}`, {
         method: "DELETE",
       });
 
@@ -172,18 +222,18 @@ export default function AdminEquipmentPage() {
   };
 
   // ------------------ 수정 다이얼로그 열기 ------------------
-  const handleEditOpen = (item: Equipment) => { // ⭐ 추가
+  const handleEditOpen = (item: Equipment) => { 
     setCurrentEquipment(item);
     setIsDialogOpen(true);
   };
 
   // ------------------ 수정 저장 ------------------
-  const handleUpdate = async () => { // ⭐ 추가
+  const handleUpdate = async () => { 
     if (!currentEquipment) return;
 
     try {
       const res = await fetch(
-        `http://localhost:4000/equipments/${currentEquipment.id}`,
+        `/api/equipments/${currentEquipment.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -227,7 +277,7 @@ export default function AdminEquipmentPage() {
 }));
 
 
-  const res = await fetch("http://localhost:4000/equipments/bulk", {
+  const res = await fetch("/api/equipments/bulk", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -255,7 +305,7 @@ export default function AdminEquipmentPage() {
         <h1 className="text-3xl font-bold">장비 관리</h1>
 
         <div className="flex gap-2">
-          {/* ⭐ EXCEL */}
+          {/* EXCEL */}
           <Input
             type="file"
             accept=".xlsx,.xls"
@@ -273,8 +323,8 @@ export default function AdminEquipmentPage() {
         </div>
       </div>
 
-      {/* 🔍 검색 + 📂 카테고리 필터 */}
-      <div className="flex gap-2"> {/* ⭐ 수정 (flex로 변경) */}
+      {/*  검색 +  카테고리 필터 */}
+      <div className="flex gap-2"> 
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -380,34 +430,96 @@ export default function AdminEquipmentPage() {
     </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle> {detailItem?.name} 상세 정보</DialogTitle>
-    </DialogHeader>
+      <DialogContent
+        className="
+          max-w-2xl
+          max-h-[85vh]
+          overflow-y-auto
+          rounded-xl
+          p-8
+          transition-all
+          duration-300
+          ease-out
+          data-[state=open]:animate-in
+          data-[state=closed]:animate-out
+          data-[state=open]:fade-in-0
+          data-[state=closed]:fade-out-0
+          data-[state=open]:zoom-in-95
+          data-[state=closed]:zoom-out-95
+        "
+      >
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-xl font-semibold tracking-tight">
+            {detailItem?.name} 상세보기
+          </DialogTitle>
 
-    {detailItem && (
-      <div className="space-y-3 text-sm">
-        <div>
-          <strong>분류:</strong> {detailItem.classification}
-        </div>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              variant={detailTab === "info" ? "default" : "outline"}
+              onClick={() => setDetailTab("info")}
+            >
+              장비 상세 정보
+            </Button>
 
-        <div>
-          <strong>부속품:</strong>
-          <div className="whitespace-pre-wrap">
-            {detailItem.accessories}
+            <Button
+              size="sm"
+              variant={detailTab === "calendar" ? "default" : "outline"}
+              onClick={() => setDetailTab("calendar")}
+            >
+              예약현황
+            </Button>
           </div>
-        </div>
+        </DialogHeader>
 
-        <div>
-          <strong>비고:</strong>
-          <div className="whitespace-pre-wrap">
-            {detailItem.note}
+        {/* ---------------- 상세 정보 ---------------- */}
+        {detailTab === "info" && detailItem && (
+          <div className="space-y-3 text-sm mt-4">
+            <div>
+              <strong>분류:</strong> {detailItem.classification || "-"}
+            </div>
+
+            <div>
+              <strong>부속품:</strong>
+              <div className="whitespace-pre-wrap">
+                {detailItem.accessories || "-"}
+              </div>
+            </div>
+
+            <div>
+              <strong>비고:</strong>
+              <div className="whitespace-pre-wrap">
+                {detailItem.note || "-"}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
+        )}
+
+        {/* ---------------- 예약 현황 ---------------- */}
+        {detailTab === "calendar" && (
+          <div className="mt-4">
+            <Calendar
+              key={`${detailItem?.id}-${reservations.length}`}
+              mode="multiple"
+              selected={reservedDates}
+              defaultMonth={defaultMonth}
+              showOutsideDays
+              onSelect={() => {}}
+            />
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              · 진하게 표시된 날짜 = 진행 중 또는 예약된 일정(반납일까지 포함)
+            </div>
+
+            {reservedDates.length === 0 && (
+              <div className="mt-2 text-sm text-muted-foreground">
+                현재 예약이 없습니다.
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
 
 
       {/* 다이얼로그 */}
@@ -531,7 +643,6 @@ export default function AdminEquipmentPage() {
         )}
       </DialogContent>
     </Dialog>
-
     </div>
   );
 }

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 
 
-// ✅ 카테고리 고정 옵션 (탭 순서 고정용)
+// 카테고리 고정 옵션 (탭 순서 고정용)
 const CATEGORY_OPTIONS = [
   "카메라", "삼각대", "렌즈", "필터", "마이크",
   "오디오", "조명기", "충전기", "메모리카드", "배터리", "반사판", 
@@ -47,7 +47,6 @@ interface Equipment {
   accessories?: string;     // (부속품)
   note?: string;            // (비고)
   status: EquipmentStatus;
-  // imageUrl: string;
   category: typeof CATEGORY_OPTIONS[number] | "";
   usageInfo?: string;
 }
@@ -72,7 +71,6 @@ const getCartFromLocalStorage = (): CartMap => {
   }
 };
 
-// 날짜 유틸: from~to (포함) 모든 날짜 나열 (00:00 기준으로 정규화)
 const enumerateDates = (from: Date, to: Date): Date[] => {
   const start = new Date(from); start.setHours(0,0,0,0);
   const end = new Date(to);     end.setHours(0,0,0,0);
@@ -84,7 +82,6 @@ const enumerateDates = (from: Date, to: Date): Date[] => {
   return arr;
 };
 
-// ===== 목록 테이블 컴포넌트 =====
 const EquipmentTable = ({
   items,
   cart,
@@ -108,7 +105,6 @@ const EquipmentTable = ({
           <TableHead className="border-r border-border">관리번호</TableHead>
           <TableHead className="border-r border-border">자산번호</TableHead>  
           <TableHead className="border-r border-border">장비명</TableHead>
-          {/* <TableHead className="border-r border-border">상태</TableHead> */}
           <TableHead>상세보기</TableHead>
           <TableHead className="text-right">장바구니</TableHead>
         </TableRow>
@@ -119,7 +115,6 @@ const EquipmentTable = ({
           const canAdd = !alreadyInCart;
           return (
             <TableRow key={item.id}>
-              {/* ✅ 순번 컬럼 */}
               <TableCell className="w-16 text-center text-muted-foreground">
                 {index + 1}
               </TableCell>
@@ -131,22 +126,6 @@ const EquipmentTable = ({
               </TableCell>
 
               <TableCell className="font-medium">{item.name}</TableCell>
-
-              {/* <TableCell>
-                {(() => {
-                    const statusInfo = statusMap[item.status.toLowerCase() as EquipmentStatus] ?? {
-                    text: "알 수 없음",
-                    variant: "outline",
-                    };
-
-                    return (
-                    <Badge variant={statusInfo.variant}>
-                        {statusInfo.text}
-                    </Badge>
-                    );
-                })()}
-            </TableCell> */}
-
 
               <TableCell>
                 <Button 
@@ -188,15 +167,14 @@ export default function EquipmentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<TabCategory>("all");
 
-  // 🔹 모달 내부 탭: 'usage' | 'calendar'
   const [detailTab, setDetailTab] = useState<"usage" | "calendar">("usage");
 
-  // 🔹 모달 전용: 예약 목록 상태
+  // 모달 전용: 예약 목록 상태
   const [reservations, setReservations] = useState<{ from: Date; to: Date }[]>([]);
 
     useEffect(() => {
       const fetchEquipments = async () => {
-        const res = await fetch("http://localhost:4000/equipments");
+        const res = await fetch("/api/equipments");
         if (!res.ok) return;
 
         const data = await res.json();
@@ -228,12 +206,10 @@ export default function EquipmentPage() {
     }, []);
 
 
-  // 장바구니 초기화
   useEffect(() => {
     setCart(getCartFromLocalStorage());
   }, []);
 
-  // cart → localStorage 저장
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("cart", JSON.stringify(cart));
@@ -246,7 +222,6 @@ export default function EquipmentPage() {
     });
   };
 
-  // ✅ 탭 목록: "전체" + 현재 데이터에 존재하는 카테고리만 활성화
   const categories = useMemo<TabCategory[]>(() => {
     const existing = new Set<Category>(
       items
@@ -269,12 +244,11 @@ export default function EquipmentPage() {
     useEffect(() => {
       if (!viewTarget) return;
 
-      // 🔥 장비 바뀌면 먼저 초기화
       setReservations([]);
 
       const fetchReservations = async () => {
         const res = await fetch(
-          `http://localhost:4000/equipments/${viewTarget.id}/reservations`
+          `/api/equipments/${viewTarget.id}/reservations`
         );
         if (!res.ok) return;
 
@@ -292,13 +266,10 @@ export default function EquipmentPage() {
     }, [viewTarget]);
 
 
-
-  // 🔹 캘린더에 표시할 "예약된 날짜" 배열
   const reservedDates = useMemo(() => {
     return reservations.flatMap(({ from, to }) => enumerateDates(from, to));
   }, [reservations]);
 
-  // 🔹 캘린더가 처음 보여줄 월 (예약이 있으면 가장 이른 날짜의 월)
   const defaultMonth = useMemo(() => {
     if (reservedDates.length === 0) return new Date();
     const minTs = Math.min(...reservedDates.map((d) => d.getTime()));
@@ -317,8 +288,8 @@ export default function EquipmentPage() {
         </Button>
       </div>
 
-      {/* 🔍 검색 + 📂 카테고리 필터 */}
-      <div className="flex gap-2"> {/* ⭐ 수정 (flex로 변경) */}
+      {/* 검색 +  카테고리 필터 */}
+      <div className="flex gap-2"> 
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -329,7 +300,7 @@ export default function EquipmentPage() {
         />
       </div>
 
-      {/* ⭐ 추가: 카테고리 드롭다운 */}
+      {/* 카테고리 드롭다운 */}
         <select
           className="border rounded-md px-3 py-2 text-sm"
           value={activeTab}
@@ -354,7 +325,7 @@ export default function EquipmentPage() {
       />
 
 
-      {/* ✅ 상세보기 모달: 사용법 / 대출현황 토글 */}
+      {/* 상세보기 모달: 사용법 / 대출현황 토글 */}
       <Dialog 
         open={!!viewTarget} 
         onOpenChange={(open) => {
@@ -395,7 +366,7 @@ export default function EquipmentPage() {
           {detailTab === "usage" && viewTarget && (
             <div className="space-y-4 text-sm">
 
-              {/* 📂 분류 */}
+              {/* 분류 */}
               <div>
                 <div className="font-semibold">분류</div>
                 <div className="text-muted-foreground">
@@ -403,7 +374,7 @@ export default function EquipmentPage() {
                 </div>
               </div>
 
-              {/* 📦 부속품 */}
+              {/* 부속품 */}
               <div>
                 <div className="font-semibold">부속품</div>
                 <div className="whitespace-pre-wrap text-muted-foreground">
@@ -411,14 +382,13 @@ export default function EquipmentPage() {
                 </div>
               </div>
 
-              {/* 📝 비고 */}
+              {/* 비고 */}
               <div>
                 <div className="font-semibold">비고</div>
                 <div className="whitespace-pre-wrap text-muted-foreground">
                   {viewTarget.note || "등록된 비고가 없습니다."}
                 </div>
               </div>
-
             </div>
           )}
 
@@ -435,12 +405,8 @@ export default function EquipmentPage() {
                   selected={reservedDates}
                   defaultMonth={defaultMonth}
                   showOutsideDays
-                  onSelect={() => {}}   // 👈 선택해도 아무 일도 안 일어남
+                  onSelect={() => {}}   
                 />
-
-
-
-
 
                 <div className="mt-2 text-xs text-muted-foreground">
                   · 진하게 표시된 날짜 = 진행 중 또는 예약된 일정(반납일까지 포함)
@@ -452,7 +418,6 @@ export default function EquipmentPage() {
                 )}
               </div>
             )}
-
           <DialogFooter>
             <Button onClick={() => setViewTarget(null)}>닫기</Button>
           </DialogFooter>

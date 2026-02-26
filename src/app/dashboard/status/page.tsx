@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog"; 
 import { Button } from "@/components/ui/button"; 
 
-// ===== 유틸 ===== //
 type FSVal = Date | string | null | undefined;
 
 const toDate = (v: FSVal) => {
@@ -26,7 +25,7 @@ const toDate = (v: FSVal) => {
 };
 
 const hhmm = (d: Date | null) => {
-    if (!d) return ""; // null이나 undefined면 빈 문자열 반환
+    if (!d) return ""; 
     return d.toLocaleTimeString("ko-KR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -37,13 +36,13 @@ const hhmm = (d: Date | null) => {
 function maskName(name?: string | null) {
   if (!name) return "익명";
   const first = name[0] ?? "";
-  return first + "＊".repeat(Math.max(1, name.length - 1)); // 예: 홍길동 -> 홍＊＊
+  return first + "＊".repeat(Math.max(1, name.length - 1)); 
 }
 
 export default function ReservationsStatusPage() {
   const [facility, setFacility] = useState<"전체" | "편집실" | "녹음실">("전체");
   const [rows, setRows] = useState<any[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null); // 모달용 상태
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null); 
 
 
 useEffect(() => {
@@ -52,9 +51,9 @@ useEffect(() => {
       facility === "전체" ? "" : `?facility=${encodeURIComponent(facility)}`;
 
     const res = await fetch(
-      `http://localhost:4000/facility-reservations${params}`,
+      `/api/facility-reservations${params}`,
       {
-        credentials: "include", // 로그인 쿠키 쓰면 유지
+        credentials: "include", 
       }
     );
 
@@ -77,10 +76,9 @@ useEffect(() => {
       const e = toDate(r.endAt)!;
       const title = `${r.purpose ?? "시설 예약"} · 팀 ${r.headcount ?? 1}명 · 신청자 ${maskName(r?.requester?.name)}`;
 
-      // ★ 수정: 시설별 색상 지정
-      let color = "#6b7280"; // 기본 회색
-      if (r.facility === "편집실") color = "#3b82f6"; // 파랑
-      if (r.facility === "녹음실") color = "#22c55e"; // 초록
+      let color = "#FDBA74"; 
+      if (r.facility?.name === "편집실") color = "#FDBA74";
+      if (r.facility?.name === "녹음실") color = "#a6cb60";
 
       return {
         id: r.id,
@@ -89,7 +87,7 @@ useEffect(() => {
         end: e,
         display: "block",
         color, 
-        extendedProps: r, // 모달에 상세정보 전달
+        extendedProps: r, 
       } as EventInput;
     });
   }, [rows]);
@@ -116,18 +114,27 @@ useEffect(() => {
             events={events}
             height="auto"
             eventClick={(info) => {
-              setSelectedEvent(info.event.extendedProps); // ★ 클릭 시 모달에 표시할 데이터 저장
+              setSelectedEvent(info.event.extendedProps); 
             }}
           />
 
-            {/* ★ 색상 범례 추가 */}
+            {/* 색상 범례 */}
             <div className="flex gap-4 mt-4 text-sm">
-            <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-blue-500" /> 편집실
-            </div>
-            <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-green-500" /> 녹음실
-            </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-sm"
+                  style={{ backgroundColor: "#FDBA74" }}
+                />
+                편집실
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-sm"
+                  style={{ backgroundColor: "#a6cb60" }}
+                />
+                녹음실
+              </div>
             </div>
 
         </CardContent>
@@ -143,7 +150,7 @@ useEffect(() => {
             <div className="space-y-4 mt-4 text-sm">
             <div>
                 <p className="text-muted-foreground">시설</p>
-                <p className="font-medium">{selectedEvent?.facility}</p>
+                <p className="font-medium">{selectedEvent?.facility?.name}</p>
             </div>
 
             <div>

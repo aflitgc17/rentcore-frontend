@@ -9,12 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, Mic, PencilRuler, PlusCircle, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/simple-toast";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-/* =========================
-   상수: 이용수칙
-========================= */
+export default function ReservationsPage() {
+  const { toast } = useToast();
+  const { profile, loading } = useCurrentUser();
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+
+
 const EDITING_ROOM_RULES = [
   "편집실 사용기간은 오전 9시 30분 ~ 오후 6시까지입니다.",
   "편집실 내에서는 음식 섭취를 금합니다(생수 등 간단한 음료는 제외)",
@@ -33,14 +41,20 @@ const RECORDING_ROOM_RULES = [
   "데이터 분실에 대한 책임은 일절 지지 않습니다. 주의해 주시기 바랍니다.",
 ];
 
+
 /* =========================
    타입
 ========================= */
 type TeamMember = { name: string; studentId: string };
 
+type Facility = {
+  id: number;
+  name: string;
+};
+
 type UserProfile =
   | {
-      id?: number; // 서버가 id를 주면 사용(없어도 됨)
+      id?: number; 
       name: string;
       department: string;
       studentId: string;
@@ -50,44 +64,31 @@ type UserProfile =
 
 type ConflictItem = {
   id: string | number;
-  startAt: string; // ISO
-  endAt: string; // ISO
-  requesterName?: string | null; // 서버에서 주면 보여줌
+  startAt: string; 
+  endAt: string; 
+  requesterName?: string | null; 
 };
 
 const initialFormState = {
   date: "",
   startTime: "",
   endTime: "",
+  computer: "",
+  subjectName: "",
   purpose: "",
   team: [] as TeamMember[],
 };
 
-/* =========================
-   환경: API Base
-========================= */
-const API_BASE = "http://localhost:4000";
+const API_BASE = "/api";
 
-/* =========================
-   훅: 현재 사용자/프로필 로드 (JWT 기반)
-========================= */
 function useCurrentUser() {
   const [profile, setProfile] = useState<UserProfile>(null);
   const [loading, setLoading] = useState(true);
 
+
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-    if (!token) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-
-    fetch(`${API_BASE}/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    fetch(`${API_BASE}/my/profile`, {
+      credentials: "include",
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setProfile(data))
@@ -98,9 +99,6 @@ function useCurrentUser() {
   return { profile, loading };
 }
 
-/* =========================
-   컴포넌트: 주의사항 카드
-========================= */
 const RulesCard = ({ title, rules }: { title: string; rules: string[] }) => (
   <Alert>
     <AlertCircle className="h-4 w-4" />
@@ -115,9 +113,27 @@ const RulesCard = ({ title, rules }: { title: string; rules: string[] }) => (
   </Alert>
 );
 
-/* =========================
-   유틸: 겹침 표시용 시간 포맷
-========================= */
+function generateTimeOptions() {
+  const times: string[] = [];
+
+  let hour = 9;
+  let minute = 30;
+
+  while (hour < 18 || (hour === 18 && minute === 0)) {
+    const hh = String(hour).padStart(2, "0");
+    const mm = String(minute).padStart(2, "0");
+    times.push(`${hh}:${mm}`);
+
+    minute += 30;
+    if (minute === 60) {
+      minute = 0;
+      hour++;
+    }
+  }
+
+  return times;
+}
+
 function fmtRangeFromISO(startISO: string, endISO: string) {
   const s = new Date(startISO);
   const e = new Date(endISO);
@@ -126,26 +142,22 @@ function fmtRangeFromISO(startISO: string, endISO: string) {
   return `${hhmm(s)} ~ ${hhmm(e)}`;
 }
 
-/* =========================
-   예약 겹침(Conflict) 조회 (서버 API)
-   서버는 아래 형태로 응답하면 됨:
-   [
-     { id, startAt: "ISO", endAt: "ISO", requesterName? }
-   ]
-========================= */
+
 async function fetchConflicts(params: {
-  facility: "편집실" | "녹음실";
+  facility: string;
   date: string;
   startTime: string;
   endTime: string;
+  computer?: string;
 }): Promise<ConflictItem[]> {
-  const { facility, date, startTime, endTime } = params;
+  const { facility, date, startTime, endTime, computer } = params;
 
   const qs = new URLSearchParams({
-    facility,
+    facilityName: facility,
     date,
     start: startTime,
     end: endTime,
+    ...(computer && { computer }),
   });
 
   const res = await fetch(`${API_BASE}/facility-reservations/conflicts?${qs.toString()}`);
@@ -161,9 +173,6 @@ async function fetchConflicts(params: {
   }));
 }
 
-/* =========================
-   컴포넌트: 예약 폼
-========================= */
 function ReservationForm({
   isRecording = false,
   onSubmit,
@@ -179,14 +188,26 @@ function ReservationForm({
 }) {
   const [formData, setFormData] = useState(initialFormState);
   const [teamMember, setTeamMember] = useState({ name: "", studentId: "" });
+  const timeOptions = generateTimeOptions();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  
 
   // 겹침 상태
   const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
   const [checking, setChecking] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  // 시간 유효성 검사 함수
+  const isTimeValid = () => {
+    const { startTime, endTime } = formData;
+    if (!startTime || !endTime) return true;
+    return startTime < endTime;
   };
 
   // 날짜/시간 바뀔 때 겹침 조회
@@ -199,13 +220,25 @@ function ReservationForm({
         setConflicts([]);
         return;
       }
+
+      if (facilityName === "편집실" && !formData.computer) {
+        setConflicts([]);
+        return;
+      }
+
+      if (startTime >= endTime) {
+        setConflicts([]);
+        return;
+      }
+
       setChecking(true);
       try {
         const list = await fetchConflicts({
-          facility: facilityName,
+          facility: formData.computer || facilityName,
           date,
           startTime,
           endTime,
+          computer: formData.computer,
         });
         if (!cancelled) setConflicts(list);
       } finally {
@@ -216,7 +249,7 @@ function ReservationForm({
     return () => {
       cancelled = true;
     };
-  }, [formData.date, formData.startTime, formData.endTime, facilityName]);
+  }, [formData.date, formData.startTime, formData.endTime, formData.computer, facilityName]);
 
   const handleTeamMemberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -235,14 +268,37 @@ function ReservationForm({
   };
 
   const isFormComplete = () => {
-    const { date, startTime, endTime, purpose } = formData;
-    return Boolean(userInfo && date && startTime && endTime && purpose);
+    const { date, startTime, endTime, subjectName, purpose } = formData;
+    return Boolean(userInfo && date && startTime && endTime && subjectName && purpose);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormComplete() || !userInfo) return;
     if (conflicts.length > 0) return;
+    // if (!selectedFacility) {
+    //   toast({
+    //     title: "시설을 선택하세요",
+    //     variant: "destructive",
+    //   });
+    //   return { success: false };
+    // }
+
+    // let facilityNameToSend = "";
+
+    // if (facilityName === "녹음실") {
+    //   facilityNameToSend = "녹음실";
+    // } else {
+    //   if (!data.computer) {
+    //     toast({
+    //       title: "사용 컴퓨터를 선택하세요",
+    //       variant: "destructive",
+    //     });
+    //     return { success: false };
+    //   }
+
+    //   facilityNameToSend = `편집실 ${data.computer}`;
+    // }
 
     // 마지막 입력칸 값도 자동 반영
     let finalTeam = formData.team;
@@ -267,43 +323,115 @@ function ReservationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Card className="bg-muted/50">
-        <CardContent className="pt-6">
+      <Card className="bg-muted/40 shadow-sm">
+        <CardContent className="py-0.5 px-5">
           {userInfo ? (
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label>예약자명</Label>
-                <p className="text-sm font-medium">{userInfo.name}</p>
+            <div className="grid sm:grid-cols-3 gap-x-4 gap-y-1">
+              <div className="leading-tight">
+                <Label className="text-xs text-muted-foreground">예약자명</Label>
+                <p className="text-sm font-semibold">{userInfo.name}</p>
               </div>
-              <div className="space-y-1">
-                <Label>학과</Label>
-                <p className="text-sm font-medium">{userInfo.department}</p>
+              <div className="space-y-0.5">
+                <Label className="text-xs text-muted-foreground">학과</Label>
+                <p className="text-sm font-semibold">{userInfo.department}</p>
               </div>
-              <div className="space-y-1">
-                <Label>학번</Label>
-                <p className="text-sm font-medium">{userInfo.studentId}</p>
+              <div className="space-y-0.5">
+                <Label className="text-xs text-muted-foreground">학번</Label>
+                <p className="text-sm font-semibold">{userInfo.studentId}</p>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">로그인 후 예약자 정보가 표시됩니다.</div>
+            <div className="text-sm text-muted-foreground">
+              로그인 후 예약자 정보가 표시됩니다.
+            </div>
           )}
         </CardContent>
       </Card>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date">사용일</Label>
-          <Input id="date" type="date" value={formData.date} onChange={handleChange} />
+
+          <Label>사용일</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate
+                  ? format(selectedDate, "yyyy-MM-dd")
+                  : "날짜 선택"}
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  if (date) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      date: format(date, "yyyy-MM-dd"),
+                    }));
+                  }
+                }}
+                disabled={(date) =>
+                  date < new Date() // 오늘 이전 날짜 막기
+                }
+              />
+            </PopoverContent>
+          </Popover>
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="startTime">사용 시작 시간</Label>
-          <Input id="startTime" type="time" value={formData.startTime} onChange={handleChange} />
+
+          <select
+            id="startTime"
+            value={formData.startTime}
+            onChange={handleChange}
+            className="w-full border rounded-md px-3 py-2 text-sm"
+          >
+            <option value="">선택</option>
+            {timeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="endTime">사용 종료 시간</Label>
-          <Input id="endTime" type="time" value={formData.endTime} onChange={handleChange} />
+
+          <select
+            id="endTime"
+            value={formData.endTime}
+            onChange={handleChange}
+            className="w-full border rounded-md px-3 py-2 text-sm"
+          >
+            <option value="">선택</option>
+            {timeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {!isTimeValid() && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>시간 설정 오류</AlertTitle>
+          <AlertDescription>
+            종료 시간은 시작 시간보다 늦어야 합니다.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* 겹침 안내 */}
       {(checking || conflicts.length > 0) && (
@@ -326,71 +454,99 @@ function ReservationForm({
         </Alert>
       )}
 
+      {facilityName === "편집실" && (
+        <div className="space-y-2">
+          <Label htmlFor="computer">사용 컴퓨터</Label>
+          <select
+            id="computer"
+            value={formData.computer || ""}
+            onChange={handleChange}
+            className="w-full border rounded-md px-3 py-2 text-sm"
+          >
+            <option value="">선택</option>
+            {/* <option value="1-1">편집실 1-1</option>
+            <option value="1-2">편집실 1-2</option>
+            <option value="2-1">편집실 2-1</option>
+            <option value="2-2">편집실 2-2</option> */}
+            <option value="편집실1-1">편집실1-1</option>
+            <option value="편집실1-2">편집실1-2</option>
+            <option value="편집실2-1">편집실2-1</option>
+            <option value="편집실2-2">편집실2-2</option>
+          </select>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor="subjectName">교과목명</Label>
+        <Input
+          id="subjectName"
+          value={formData.subjectName}
+          onChange={handleChange}
+        />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="purpose">사용 목적</Label>
         <Input
           id="purpose"
-          placeholder="사용 목적을 구체적으로 기입"
           value={formData.purpose}
           onChange={handleChange}
         />
       </div>
 
-      {isRecording && (
-        <div className="space-y-4 rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <Label>팀원 추가 (선택)</Label>
-            <p className="text-sm text-muted-foreground">총 인원: {formData.team.length + 1}명</p>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="teamMemberName" className="text-xs">
-                팀원 이름
-              </Label>
-              <Input
-                id="teamMemberName"
-                name="name"
-                placeholder="홍길동"
-                value={teamMember.name}
-                onChange={handleTeamMemberChange}
-              />
-            </div>
-
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="teamMemberId" className="text-xs">
-                팀원 학번
-              </Label>
-              <Input
-                id="teamMemberId"
-                name="studentId"
-                placeholder="20240000"
-                value={teamMember.studentId}
-                onChange={handleTeamMemberChange}
-              />
-            </div>
-
-            <Button type="button" variant="outline" size="icon" onClick={addTeamMember}>
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {formData.team.length > 0 && (
-            <div className="space-y-2">
-              {formData.team.map((member, index) => (
-                <div key={`${member.studentId}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
-                  <p>
-                    {member.name} ({member.studentId})
-                  </p>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeTeamMember(index)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="space-y-4 rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <Label>팀원 추가 (선택)</Label>
+          <p className="text-sm text-muted-foreground">총 인원: {formData.team.length + 1}명</p>
         </div>
-      )}
+
+        <div className="flex items-end gap-2">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="teamMemberName" className="text-xs">
+              팀원 이름
+            </Label>
+            <Input
+              id="teamMemberName"
+              name="name"
+              placeholder="홍길동"
+              value={teamMember.name}
+              onChange={handleTeamMemberChange}
+            />
+          </div>
+
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="teamMemberId" className="text-xs">
+              팀원 학번
+            </Label>
+            <Input
+              id="teamMemberId"
+              name="studentId"
+              placeholder="20240000"
+              value={teamMember.studentId}
+              onChange={handleTeamMemberChange}
+            />
+          </div>
+
+          <Button type="button" variant="outline" size="icon" onClick={addTeamMember}>
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {formData.team.length > 0 && (
+          <div className="space-y-2">
+            {formData.team.map((member, index) => (
+              <div key={`${member.studentId}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                <p>
+                  {member.name} ({member.studentId})
+                </p>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeTeamMember(index)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-end">
         <Button
@@ -398,12 +554,12 @@ function ReservationForm({
           disabled={
             !userInfo ||
             disabled ||
-            !Boolean(formData.date && formData.startTime && formData.endTime && formData.purpose) ||
+            !Boolean(formData.date && formData.startTime && formData.endTime && formData.subjectName && formData.purpose) ||
             conflicts.length > 0 ||
             checking
           }
         >
-          관리자에게 예약 요청하기
+          예약 요청하기
         </Button>
       </div>
     </form>
@@ -413,10 +569,6 @@ function ReservationForm({
 /* =========================
    페이지
 ========================= */
-export default function ReservationsPage() {
-  const { toast } = useToast();
-  const { profile, loading } = useCurrentUser();
-  const [submitting, setSubmitting] = useState(false);
 
   const handleFormSubmit =
     (facilityName: "편집실" | "녹음실") =>
@@ -430,14 +582,36 @@ export default function ReservationsPage() {
         return { success: false };
       }
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "토큰이 없습니다. 다시 로그인해 주세요.",
-          variant: "destructive",
-        });
-        return { success: false };
+      // let facilityNameToSend = "";
+
+      // if (facilityName === "녹음실") {
+      //   facilityNameToSend = "녹음실";
+      // } else {
+      //   if (!data.computer) {
+      //     toast({
+      //       title: "사용 컴퓨터를 선택하세요",
+      //       variant: "destructive",
+      //     });
+      //     return { success: false };
+      //   }
+      //     // facilityNameToSend = "편집실"; 
+      //     facilityNameToSend = data.computer;
+      // }
+
+      let facilityNameToSend = "";
+
+      if (facilityName === "녹음실") {
+        facilityNameToSend = "녹음실";
+      } else {
+        if (!data.computer) {
+          toast({
+            title: "사용 공간을 선택하세요",
+            variant: "destructive",
+          });
+          return { success: false };
+        }
+
+        facilityNameToSend = data.computer; 
       }
 
       try {
@@ -445,15 +619,20 @@ export default function ReservationsPage() {
 
         const res = await fetch(`${API_BASE}/facility-reservations`, {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
+
+
           body: JSON.stringify({
-            facility: facilityName,
+            // facilityId: selectedFacility!.id,
+            facilityName: facilityNameToSend,
             date: data.date,
             startTime: data.startTime,
             endTime: data.endTime,
+            computer: data.computer ?? null,
+            subjectName: data.subjectName,
             purpose: data.purpose,
             team: data.team ?? [],
             headcount: data.headcount ?? (data.team?.length ?? 0) + 1,

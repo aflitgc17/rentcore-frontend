@@ -21,10 +21,6 @@ import { useToast } from "@/components/ui/simple-toast";
 import { useRouter } from "next/navigation";
 
 
-/* =====================
-헬퍼: 날짜 정규화
-========================*/
-
 function startOfDay(d: Date) {
   const x = new Date(d); x.setHours(0,0,0,0); return x;
 }
@@ -33,9 +29,6 @@ function endOfDay(d: Date) {
 }
 
 
-/* =====================
-   영업일 계산 함수 추가
-========================*/
 const countBusinessDays = (from: Date, to: Date) => {
   let count = 0;
   const cur = new Date(from);
@@ -78,16 +71,12 @@ function getMaxAllowedEndDate(start: Date) {
 }
 
 
-/* =========================================
-   헬퍼: 배열 chunk (TSX 안전)
-========================================= */
 function chunk<T>(arr: T[], size: number) {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
 
-// =====타입=====
 type EquipmentStatus = "available" | "rented" | "damaged" | "reserved";
 interface Equipment {
   id: string;
@@ -99,7 +88,6 @@ interface Equipment {
 
 type CartMap = { [id: string]: number };
 
-// =====로컬 스토리지 헬퍼=====
 const readCart = (): CartMap => {
   if (typeof window === "undefined") return {};
   try {
@@ -115,7 +103,6 @@ const writeCart = (cart: CartMap) => {
   } catch {}
 };
 
-// =====페이지 컴포넌트=====
 export default function CartPage() {
   const { toast } = useToast();
   const [cart, setCart] = useState<CartMap>({});
@@ -125,25 +112,32 @@ export default function CartPage() {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const router = useRouter();
   const [rangeError, setRangeError] = useState<string | null>(null);
-
-  // 교과목명 / 사용목적
   const [subjectName, setSubjectName] = useState("");
   const [purpose, setPurpose] = useState("");
+  const timeOptions = useMemo(() => {
+  const hours = [];
+    for (let h = 9; h <= 18; h++) {
+      const hh = String(h).padStart(2, "0");
+      hours.push(`${hh}:00`);
+    }
+    return hours;
+  }, []);
+
+  
 
 
-
-    useEffect(() => {
-      fetch("http://localhost:4000/equipments")
-        .then((res) => res.json())
-        .then((data) => {
-          const mapped = data.map((item: any) => ({
-            ...item,
-            id: String(item.id),// 🔥 핵심
-          }));
-          setEquipmentList(mapped);
-        })
-        .catch(console.error);
-    }, []);
+  useEffect(() => {
+    fetch("/api/equipments")
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data.map((item: any) => ({
+          ...item,
+          id: String(item.id),
+        }));
+        setEquipmentList(mapped);
+      })
+      .catch(console.error);
+  }, []);
 
 
   useEffect(() => {
@@ -181,6 +175,8 @@ export default function CartPage() {
 
   // ===== 대여 기간 상태/헬퍼 =====
   const [range, setRange] = useState<DateRange | undefined>();
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
 
   const today = useMemo(() => {
     const d = new Date();
@@ -207,18 +203,19 @@ export default function CartPage() {
       return;
     }
 
-    // const businessDays = countBusinessDays(fromAt, toAt);
-
-    // if (businessDays > 3) {
-    //   setRangeError("대여는 영업일 기준 최대 3일까지 가능합니다.");
-    //   return;
-    // }
-
     const maxEndDate = getMaxAllowedEndDate(fromAt);
 
     if (!maxEndDate) {
       setRangeError("토요일과 일요일은 시작일로 선택할 수 없습니다.");
       return;
+    }
+
+    // ✅ 같은 날일 때 시간 검사
+    if (fromAt.getTime() === toAt.getTime()) {
+      if (startTime >= endTime) {
+        setRangeError("같은 날은 종료 시간이 시작 시간보다 늦어야 합니다.");
+        return;
+      }
     }
 
     if (toAt > maxEndDate) {
@@ -229,9 +226,14 @@ export default function CartPage() {
     }
 
     setRangeError(null);
-  }, [fromAt, toAt]);
+  }, [fromAt, toAt, startTime, endTime]);
 
-const validRange = !!fromAt && !!toAt && !rangeError;
+  const validRange = !!fromAt && !!toAt && !rangeError;
+
+  const validTime =
+  !!startTime &&
+  !!endTime &&
+  startTime < endTime;
 
 
 
@@ -274,28 +276,17 @@ const validRange = !!fromAt && !!toAt && !rangeError;
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-        toast({
-            title: "로그인이 필요합니다",
-            variant: "destructive",
-        });
-        router.push("/login");
-        return;
-    }
-
-
     try {
       setSubmitting(true);
 
-      // (1) 기간 겹침 검사
+      // 기간 겹침 검사
       const equipmentIds = cartItems.map((it) => it.id);
       const res = await fetch(
-        "http://localhost:4000/rental-requests/conflicts",
+        "/api/rental-requests/conflicts",
         {
             method: "POST",
+            credentials: "include",
             headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
             "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -322,15 +313,15 @@ const validRange = !!fromAt && !!toAt && !rangeError;
         return;
       }
 
-    await fetch("http://localhost:4000/rental-requests", {
+    await fetch("/api/rental-requests", {
         method: "POST",
+        credentials: "include",
         headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            from: fromAt,
-            to: toAt,
+            from: `${format(fromAt!, "yyyy-MM-dd")}T${startTime}`,
+            to: `${format(toAt!, "yyyy-MM-dd")}T${endTime}`,
             subjectName,     
             purpose,        
             items: cartItems.map((item) => ({
@@ -343,7 +334,7 @@ const validRange = !!fromAt && !!toAt && !rangeError;
     });
 
 
-      // (7) 성공 처리
+      // 성공 처리
       clearCart();
       setRange(undefined);
       setSubmissionSuccess(true);
@@ -431,11 +422,12 @@ const validRange = !!fromAt && !!toAt && !rangeError;
       <div className="border rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">대여 기간</h2>
-          <span className="text-sm text-muted-foreground">
-            {validRange
-              ? `${format(fromAt!, "yyyy-MM-dd")} ~ ${format(toAt!, "yyyy-MM-dd")}`
-              : "기간을 선택하세요"}
-          </span>
+          <span className="text-sm font-medium">
+  {validRange
+    ? `${format(fromAt!, "M/d")} ${startTime} 
+       ~ ${format(toAt!, "M/d")} ${endTime}`
+    : "기간을 선택하세요"}
+</span>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -471,6 +463,40 @@ const validRange = !!fromAt && !!toAt && !rangeError;
             </p>
           )}
         </div>
+
+        <div className="flex gap-3 items-center">
+          <div className="space-y-1">
+            <label className="text-sm font-medium mr-2">시작 시간</label>
+            <select
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="border rounded-md px-3 py-2 w-[140px]"
+            >
+              {timeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium mr-2">종료 시간</label>
+            <select
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="border rounded-md px-3 py-2 w-[140px]"
+            >
+              {timeOptions
+                .filter((t) => t > startTime)
+                .map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
       </div>
 
 
@@ -481,7 +507,6 @@ const validRange = !!fromAt && !!toAt && !rangeError;
         <div className="space-y-2">
           <label className="text-sm font-medium">사용 교과목명</label>
           <Input
-            // placeholder="예: 영상촬영실습, 컴퓨터비전 등"
             value={subjectName}
             onChange={(e) => setSubjectName(e.target.value)}
           />
@@ -490,7 +515,6 @@ const validRange = !!fromAt && !!toAt && !rangeError;
         <div className="space-y-2">
           <label className="text-sm font-medium">사용 목적</label>
           <Input
-            // placeholder="예: 과제 촬영, 졸업 작품 준비 등"
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
           />

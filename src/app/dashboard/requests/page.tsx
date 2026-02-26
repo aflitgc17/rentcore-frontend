@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 // import Image from "next/image";
 import { Film, Calendar, Clock, Info } from 'lucide-react';
+import { Mic, Building } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 
 // ===== 상태 타입 =====
@@ -34,7 +36,7 @@ const RENTAL_STATUS_LABEL: Record<RentalStatus, string> = {
 
 const FACILITY_STATUS_LABEL: Record<FacilityStatus, string> = {
   REQUESTED: "승인 대기",
-  APPROVED: "예약 완료",
+  APPROVED: "승인",
   REJECTED: "거절",
   COMPLETED: "사용 완료",
 };
@@ -50,7 +52,6 @@ type RentalItem = {
   };
 };
 
-
 type RentalRecord = {
   id: string;
   items: RentalItem[];
@@ -59,6 +60,8 @@ type RentalRecord = {
   shootingDate?: Date | null;
   startDate?: Date | null;
   endDate?: Date | null;
+  startTime?: string | null;
+  endTime?: string | null;
   rentalPeriod?: string;
   pickupTime?: string | null;
   relatedClass?: string | null;
@@ -72,10 +75,10 @@ type RentalRecord = {
   rejectReason?: string | null;
 };
 
-
 type FacilityReservation = {
   id: string;
   facility: string;
+  createdAt?: Date | null;
   date?: Date | null;             // 단일 날짜 예약 스키마
   startTime?: string | null;
   endTime?: string | null;
@@ -84,9 +87,26 @@ type FacilityReservation = {
   status: FacilityStatus;
   start?: Date | null;            // 기간형(타임스탬프)
   end?: Date | null;
-  team?: { name: string; studentId: string }[]; // ★ 추가
-  requesterUid?: string; // ★ 추가
+  team?: { name: string; studentId: string }[]; 
+  requesterUid?: string;
+  rejectReason?: string | null;
 };
+
+// type MyHistoryItem =
+//   | (RentalRecord & { type: "EQUIPMENT" })
+//   | ({
+//       id: string;
+//       type: "FACILITY";
+//       createdAt?: Date | null;
+//       facility: string;
+//       start?: Date | null;
+//       end?: Date | null;
+//       startTime?: string | null;
+//       endTime?: string | null;
+//       purpose?: string | null;
+//       status: FacilityStatus;
+//       team?: { name: string; studentId: string }[];
+//     });
 
 function fmtCompactDate(d?: Date | null): string {
   if (!d) return "";
@@ -127,7 +147,7 @@ function fmtKDate(d?: Date | null): string {
   if (!d) return "-";
   const m = d.getMonth() + 1;
   const day = d.getDate();
-  return `${m}월 ${day}일`;
+  return `${m}/${day}`;
 }
 
 // ★ 범위 표기: "M월 D일 ~ M월 D일"
@@ -188,7 +208,7 @@ function computePeriodLabel(d: any): string {
   return "-";
 }
 
-const SHOW_FACILITY_STATUS = false;
+const SHOW_FACILITY_STATUS = true;
 
 const getStatusVariant = (
   status: RentalStatus | FacilityStatus
@@ -207,16 +227,25 @@ const getStatusVariant = (
 
 export default function MyStatusPage() {
 
+  // const [rented, setRented] = useState<RentalRecord[]>([]);
+  // const [reservations, setReservations] = useState<FacilityReservation[]>([]);
+  // const [history, setHistory] = useState<MyHistoryItem[]>([]);
   const [rented, setRented] = useState<RentalRecord[]>([]);
   const [reservations, setReservations] = useState<FacilityReservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const dateCounter: Record<string, number> = {};
+  const getFacilityIcon = (name: string) => {
+  if (name.includes("녹음")) return <Mic className="w-5 h-5 text-muted-foreground mt-0.5" />;
+  if (name.includes("편집")) return <Film className="w-5 h-5 text-muted-foreground mt-0.5" />;
+  return <Building className="w-5 h-5 text-muted-foreground mt-0.5" />;
+};
 
   useEffect(() => {
     const markAsRead = async () => {
-      await fetch("http://localhost:4000/my/notifications/read", {
+      await fetch("/api/my/notifications/read", {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          credentials: "include",
         },
       });
 
@@ -227,15 +256,72 @@ export default function MyStatusPage() {
     markAsRead();
   }, []);
 
+  const handleDownload = async (reservationId: string) => {
+    try {
+      // res-3 → 3 추출
+      const realId = reservationId.split("-")[1];
+
+      const res = await fetch(
+        `http://localhost:4000/reservations/${realId}/print`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) throw new Error("PDF 다운로드 실패");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `기자재대여신청서_${realId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error(err);
+      alert("신청서 다운로드에 실패했습니다.");
+    }
+  };
+
+  const handleFacilityDownload = async (reservationId: string) => {
+    try {
+      const res = await fetch(
+        `http://localhost:4000/facility-reservations/${reservationId}/print`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) throw new Error("PDF 다운로드 실패");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `시설신청서_${reservationId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error(err);
+      alert("시설 신청서 다운로드 실패");
+    }
+  };
+
 
 
   // ✅ 추가: fetch 함수 분리
   const fetchMyStatus = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:4000/my/status", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+      const res = await fetch("/api/my/status", {
+        credentials: "include",
         cache: "no-store", 
       });
 
@@ -251,7 +337,10 @@ export default function MyStatusPage() {
       const facilities = Array.isArray(data.facilities) ? data.facilities : [];
 
       /** 1) Reservation(확정된 예약/대여) -> RentalRecord */
-      const reservationList: RentalRecord[] = reservations.map((r: any) => ({
+      const reservationList: RentalRecord[] = reservations.map((r: any) => {
+        // console.log("reservation raw:", r);
+        
+        return {
         id: `res-${r.id}`,
         source: "RESERVATION",
         items: (r.items ?? []).map((it: any) => ({
@@ -271,6 +360,8 @@ export default function MyStatusPage() {
         endDate: r.endDate ? new Date(r.endDate) : null,
         relatedClass: r.subjectName ?? null,
 
+        startTime: r.startTime ?? null,
+        endTime: r.endTime ?? null,
         // ReservationStatus -> RentalStatus
         status:
           r.status === "PENDING" ? "REQUESTED" :
@@ -279,7 +370,8 @@ export default function MyStatusPage() {
           "REQUESTED",
 
         rejectReason: r.rejectReason ?? null,
-      }));
+      };
+    });
 
       /** 2) RentalRequest(사용자 신청 이력: REQUESTED 포함) -> RentalRecord */
       const requestList: RentalRecord[] = rentalRequests
@@ -318,22 +410,92 @@ export default function MyStatusPage() {
         return bt - at;
       });
 
+      // 날짜별 그룹 만들기
+        const groupedByDate: Record<string, RentalRecord[]> = {};
+
+        merged.forEach((item) => {
+          const key = fmtCompactDate(item.createdAt);
+          if (!groupedByDate[key]) groupedByDate[key] = [];
+          groupedByDate[key].push(item);
+        });
+
+        // 같은 날짜 안에서는 오래된 순(오름차순)으로 정렬 후 번호 부여
+        Object.values(groupedByDate).forEach((list) => {
+          list
+            .sort((a, b) => {
+              const at = a.createdAt ? a.createdAt.getTime() : 0;
+              const bt = b.createdAt ? b.createdAt.getTime() : 0;
+              return at - bt; // 👈 오래된 게 먼저
+            })
+            .forEach((item, idx) => {
+              (item as any).requestNumber = idx + 1;
+            });
+        });
+
       setRented(merged);
 
-      /** 4) 시설 */
+      // /** 4) 시설 */
+      // setReservations(
+      //   facilities.map((f: any) => ({
+      //     id: String(f.id),
+      //     facility: f.facility?.name ?? f.facility ?? "시설",
+      //     createdAt: f.createdAt ? new Date(f.createdAt) : null,
+      //     date: f.date ? new Date(f.date) : null,
+      //     startTime: f.startTime ?? null,
+      //     endTime: f.endTime ?? null,
+      //     start: f.startAt ? new Date(f.startAt) : (f.start ? new Date(f.start) : null),
+      //     end: f.endAt ? new Date(f.endAt) : (f.end ? new Date(f.end) : null),
+      //     purpose: f.purpose ?? null,
+      //     status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
+      //     team: f.team ?? [],
+      //   }))
+      // );
+
+      // 1️⃣ 먼저 매핑
+      const facilityList: FacilityReservation[] = facilities.map((f: any) => ({
+        id: String(f.id),
+        facility: f.facility?.name ?? f.facility ?? "시설",
+        createdAt: f.createdAt ? new Date(f.createdAt) : null,
+        date: f.date ? new Date(f.date) : null,
+        startTime: f.startTime ?? null,
+        endTime: f.endTime ?? null,
+        start: f.startAt ? new Date(f.startAt) : (f.start ? new Date(f.start) : null),
+        end: f.endAt ? new Date(f.endAt) : (f.end ? new Date(f.end) : null),
+        purpose: f.purpose ?? null,
+        status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
+        team: f.team ?? [],
+        rejectReason: f.rejectReason ?? f.rejectionReason ?? null,
+      }));
+
+      // 2️⃣ 날짜별 그룹핑
+      const groupedFacility: Record<string, FacilityReservation[]> = {};
+
+      facilityList.forEach((item) => {
+        const key = fmtCompactDate(item.createdAt);
+        if (!groupedFacility[key]) groupedFacility[key] = [];
+        groupedFacility[key].push(item);
+      });
+
+      // 3️⃣ 같은 날짜 안에서 오래된 순으로 정렬 + 번호 부여
+      Object.values(groupedFacility).forEach((list) => {
+        list
+          .sort((a, b) => {
+            const at = a.createdAt ? a.createdAt.getTime() : 0;
+            const bt = b.createdAt ? b.createdAt.getTime() : 0;
+            return at - bt;
+          })
+          .forEach((item, idx) => {
+            (item as any).requestNumber = idx + 1;
+          });
+      });
+
+      // 4️⃣ 최종 세팅
       setReservations(
-        facilities.map((f: any) => ({
-          id: String(f.id),
-          facility: f.facility?.name ?? f.facility ?? "시설",
-          date: f.date ? new Date(f.date) : null,
-          startTime: f.startTime ?? null,
-          endTime: f.endTime ?? null,
-          start: f.startAt ? new Date(f.startAt) : (f.start ? new Date(f.start) : null),
-          end: f.endAt ? new Date(f.endAt) : (f.end ? new Date(f.end) : null),
-          purpose: f.purpose ?? null,
-          status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
-          team: f.team ?? [],
-        }))
+        facilityList.sort((a, b) => {
+          const at = a.createdAt ? a.createdAt.getTime() : 0;
+          const bt = b.createdAt ? b.createdAt.getTime() : 0;
+          return bt - at;
+        })
       );
 
     } catch (e) {
@@ -344,6 +506,63 @@ export default function MyStatusPage() {
       setLoading(false);
     }
   }, []);
+
+  // const equipmentHistory: MyHistoryItem[] = merged.map(r => ({
+  //   ...r,
+  //   type: "EQUIPMENT",
+  // }));
+
+  // const facilityHistory: MyHistoryItem[] = facilities.map((f: any) => ({
+  //   id: `fac-${f.id}`,
+  //   type: "FACILITY",
+  //   createdAt: f.createdAt ? new Date(f.createdAt) : null,
+  //   facility: f.facility?.name ?? f.facility ?? "시설",
+  //   start: f.startAt ? new Date(f.startAt) : null,
+  //   end: f.endAt ? new Date(f.endAt) : null,
+  //   startTime: f.startTime ?? null,
+  //   endTime: f.endTime ?? null,
+  //   purpose: f.purpose ?? null,
+  //   status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
+  //   team: f.team ?? [],
+  // }));
+
+  // const allHistory = [...equipmentHistory, ...facilityHistory].sort((a, b) => {
+  //   const at = a.createdAt ? a.createdAt.getTime() : 0;
+  //   const bt = b.createdAt ? b.createdAt.getTime() : 0;
+  //   return bt - at;
+  // });
+
+  // setRented(allHistory as any);
+
+  // /** 장비 히스토리 */
+  // const equipmentHistory: MyHistoryItem[] = merged.map((r) => ({
+  //   ...r,
+  //   type: "EQUIPMENT",
+  // }));
+
+  // /** 시설 히스토리 */
+  // const facilityHistory: MyHistoryItem[] = facilities.map((f: any) => ({
+  //   id: `fac-${f.id}`,
+  //   type: "FACILITY",
+  //   createdAt: f.createdAt ? new Date(f.createdAt) : null,
+  //   facility: f.facility?.name ?? f.facility ?? "시설",
+  //   start: f.startAt ? new Date(f.startAt) : null,
+  //   end: f.endAt ? new Date(f.endAt) : null,
+  //   startTime: f.startTime ?? null,
+  //   endTime: f.endTime ?? null,
+  //   purpose: f.purpose ?? null,
+  //   status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
+  //   team: f.team ?? [],
+  // }));
+
+  // /** 최종 통합 */
+  // const allHistory = [...equipmentHistory, ...facilityHistory].sort((a, b) => {
+  //   const at = a.createdAt ? a.createdAt.getTime() : 0;
+  //   const bt = b.createdAt ? b.createdAt.getTime() : 0;
+  //   return bt - at;
+  // });
+
+  // setHistory(allHistory);
 
   // ✅ 5초마다 자동 갱신
   useEffect(() => {
@@ -361,8 +580,6 @@ export default function MyStatusPage() {
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [fetchMyStatus]);
-
-
 
 
   return (
@@ -384,23 +601,52 @@ export default function MyStatusPage() {
               <Accordion type="single" collapsible className="w-full">
                 {rented.map((rental, index) => (
                   <AccordionItem key={rental.id} value={`item-${index}`}>
-                    <AccordionTrigger>
+
+                    {/* <AccordionTrigger>
+                      <div className="flex flex-col w-full pr-4 text-left gap-1">
+                        <p className="text-lg font-bold">
+                          신청번호 #{fmtCompactDate(item.createdAt)}-{(item as any).requestNumber ?? 1}
+                        </p>
+
+                        <Badge variant={getStatusVariant(item.status)}>
+                          {item.type === "EQUIPMENT"
+                            ? RENTAL_STATUS_LABEL[item.status as RentalStatus]
+                            : FACILITY_STATUS_LABEL[item.status as FacilityStatus]}
+                        </Badge>
+                      </div>
+                    </AccordionTrigger> */}
+
+                    {/* <AccordionTrigger>
                       <div className="flex flex-col w-full pr-4 text-left gap-1">
 
                         <p className="text-lg font-bold">
-                          신청번호  #{fmtCompactDate(rental.createdAt)} - {index + 1}
+                          신청번호 #{fmtCompactDate(rental.createdAt)}-{(rental as any).requestNumber}
                         </p>
 
                         <Badge variant={getStatusVariant(rental.status)}>
                         {RENTAL_STATUS_LABEL[rental.status]}
                         </Badge>
                       </div>
+                    </AccordionTrigger> */}
+
+                    <AccordionTrigger>
+                      <div className="flex flex-col w-full pr-4 text-left gap-1">
+                        <p className="text-lg font-bold">
+                          신청번호 #{fmtCompactDate(rental.createdAt)}-
+                          {(rental as any).requestNumber}
+                        </p>
+
+                        <Badge variant={getStatusVariant(rental.status)}>
+                          {RENTAL_STATUS_LABEL[rental.status]}
+                        </Badge>
+                      </div>
                     </AccordionTrigger>
+
                     <AccordionContent>
                       <div className="space-y-4 pt-2">
-                        {rental.items.map((item) => (
-                          <div key={item.id} className="flex items-center gap-4">
-                            
+                      
+                        {rental.items.map((item, idx) => (
+                          <div key={item.id} className="flex items-center justify-between gap-4">
                             <div>
                               <p className="font-semibold">
                                 관리번호 : {item.equipment.managementNumber}
@@ -409,17 +655,33 @@ export default function MyStatusPage() {
                               <p className="text-sm text-muted-foreground">
                                 {item.equipment.name}
                               </p>
-
                             </div>
+                            
+                            {idx === 0 &&
+                              rental.source === "RESERVATION" &&
+                              rental.status !== "REJECTED" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDownload(rental.id)}
+                                >
+                                  신청서 다운로드
+                                </Button>
+                            )
+                              }
                           </div>
                         ))}
+
                         <Separator />
 
                         <div className="text-sm">
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-muted-foreground" />
                             <strong>대여기간:</strong>{" "}
-                            {fmtKRange(rental.startDate, rental.endDate)}
+                            {rental.startDate && rental.endDate
+                              ? `${fmtKDate(rental.startDate)} ${rental.startDate.toTimeString().slice(0,5)} 
+                                ~ ${fmtKDate(rental.endDate)} ${rental.endDate.toTimeString().slice(0,5)}`
+                              : "-"}
                           </div>
                         </div>
 
@@ -428,7 +690,6 @@ export default function MyStatusPage() {
                             거절 사유: {rental.rejectReason}
                           </p>
                         )}
-
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -453,70 +714,189 @@ export default function MyStatusPage() {
             {loading ? (
               <p className="text-muted-foreground text-center py-10">불러오는 중…</p>
             ) : reservations.length > 0 ? (
-              reservations.map((reservation) => {
-                const dateStr =
-                  reservation.date
-                    ? fmtDate(reservation.date)
-                    : reservation.start
-                    ? fmtDate(reservation.start)
-                    : "-";
 
-                const timeRange =
-                  reservation.startTime && reservation.endTime
-                    ? `${reservation.startTime} ~ ${reservation.endTime}`
-                    : reservation.start && reservation.end
-                    ? `${reservation.start.toTimeString().slice(0,5)} ~ ${reservation.end.toTimeString().slice(0,5)}`
-                    : "-";
+              <Accordion type="single" collapsible className="w-full">
+                  {reservations.map((reservation, index) => (
+                    <AccordionItem key={reservation.id} value={`fac-${index}`}>
 
-                return (
-                  <div key={reservation.id} className="p-4 border rounded-lg bg-muted/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="font-semibold text-lg">{reservation.facility}</p>
+                      <AccordionTrigger>
+                        <div className="flex flex-col w-full pr-4 text-left gap-1">
+                          <p className="text-lg font-bold">
+                            신청번호 #{fmtCompactDate(reservation.createdAt)}-
+                            {(reservation as any).requestNumber}
+                          </p>
 
-                      {/* 시설 상태 숨기기: SHOW_FACILITY_STATUS = false면 렌더 안 함 */}
-                      {SHOW_FACILITY_STATUS
-                        ? <Badge variant={getStatusVariant(reservation.status)}>
+                          <Badge variant={getStatusVariant(reservation.status)}>
                             {FACILITY_STATUS_LABEL[reservation.status]}
                           </Badge>
-                      : null}
-                    </div>
-                    <div className="text-sm space-y-1 text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{dateStr}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{timeRange}</span>
-                      </div>
+                        </div>
+                      </AccordionTrigger>
 
-                      <div className="flex items-center gap-2 pt-1">
-                        <Info className="w-4 h-4" />
-                        <span className="flex-1">
-                          <strong>사용목적: </strong>
-                          {reservation.purpose ?? "-"}
-                        </span>
-                      </div>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-2 text-sm">
+                      
+                         {/* <div className="flex items-start"> */}
+                         <div className="flex items-center gap-2">
+                          <div className="w-6 flex justify-center -ml-1">
+                            {getFacilityIcon(reservation.facility)}
+                          </div>
+                          <div>
+                            <strong>시설:</strong>{" "}
+                            {reservation.facility}
 
-                        {/* 팀원 출력 */}
-                        {reservation.team && reservation.team.length > 0 && (
-                          <div className="flex items-start gap-2 pt-1">
-                            <Info className="w-4 h-4" />
-                            <span className="flex-1">
-                              <strong>팀원: </strong>
-                              {reservation.team.map((member, idx) => (
-                                <span key={idx} className="mr-2">
-                                  {member.name}
+                          </div>
+
+                          {/* {reservation.status === "APPROVED" && (
+                            <Button
+                              onClick={() =>
+                                window.open(
+                                  `${process.env.NEXT_PUBLIC_API_BASE}/facility-reservations/${reservation.id}/print`,
+                                  "_blank"
+                                )
+                              }
+                            >
+                              신청서 다운로드
+                            </Button>
+                          )} */}
+
+                          {reservation.status === "APPROVED" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-auto"
+                              onClick={() => handleFacilityDownload(reservation.id)}
+                            >
+                              신청서 다운로드
+                            </Button>
+                          )}
+                        </div>
+
+                          {/* <div>
+                            <strong>사용 날짜:</strong>{" "}
+                            {reservation.date
+                              ? fmtDate(reservation.date)
+                              : reservation.start 
+                                // && reservation.end
+                              ? fmtKRange(reservation.start
+                                // , reservation.end
+                                )
+                              : "-"}
+                          </div> */}
+
+                          <div className="text-sm">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                                <strong>사용 기간:</strong>
+                                {/* 날짜 */}
+                                {reservation.date
+                                  ? fmtDate(reservation.date)
+                                  : reservation.start
+                                  ? fmtKRange(reservation.start)
+                                  : "-"}
+
+                                {" -- "}
+
+                                {/* 시간 */}
+                                {reservation.startTime && reservation.endTime
+                                  ? `${reservation.startTime} ~ ${reservation.endTime}`
+                                  : reservation.start && reservation.end
+                                  ? `${reservation.start.toTimeString().slice(0,5)} ~ ${reservation.end.toTimeString().slice(0,5)}`
+                                  : ""}
+                            </div>
+                          </div>
+
+                          {/* ✅ 거절 사유 표시 */}
+                          {reservation.status === "REJECTED" && reservation.rejectReason && (
+                            <p className="text-sm text-red-500">
+                              거절 사유: {reservation.rejectReason}
+                            </p>
+                          )}
+
+                          {/* <div>
+                            <strong>사용 목적:</strong> {reservation.purpose ?? "-"}
+                          </div> */}
+
+                          {/* {reservation.team && reservation.team.length > 0 && (
+                            <div>
+                              <strong>팀원:</strong>{" "}
+                              {reservation.team.map((m, i) => (
+                                <span key={i} className="mr-2">
+                                  {m.name}
                                 </span>
                               ))}
-                            </span>
-                          </div>
-                        )}
+                            </div> */}
+                          {/* )} */}
 
-                    </div>
-                  </div>
-                );
-              })
+                        </div>
+                      </AccordionContent>
+
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              // reservations.map((reservation) => {
+              //   const dateStr =
+              //     reservation.date
+              //       ? fmtDate(reservation.date)
+              //       : reservation.start
+              //       ? fmtDate(reservation.start)
+              //       : "-";
+
+              //   const timeRange =
+              //     reservation.startTime && reservation.endTime
+              //       ? `${reservation.startTime} ~ ${reservation.endTime}`
+              //       : reservation.start && reservation.end
+              //       ? `${reservation.start.toTimeString().slice(0,5)} ~ ${reservation.end.toTimeString().slice(0,5)}`
+              //       : "-";
+
+              //   return (
+              //     <div key={reservation.id} className="p-4 border rounded-lg bg-muted/50">
+              //       <div className="flex justify-between items-center mb-2">
+              //         <p className="font-semibold text-lg">{reservation.facility}</p>
+
+              //         {/* 시설 상태 숨기기: SHOW_FACILITY_STATUS = false면 렌더 안 함 */}
+              //         {SHOW_FACILITY_STATUS
+              //           ? <Badge variant={getStatusVariant(reservation.status)}>
+              //               {FACILITY_STATUS_LABEL[reservation.status]}
+              //             </Badge>
+              //         : null}
+              //       </div>
+              //       <div className="text-sm space-y-1 text-muted-foreground">
+              //         <div className="flex items-center gap-2">
+              //           <Calendar className="w-4 h-4" />
+              //           <span>{dateStr}</span>
+              //         </div>
+              //         <div className="flex items-center gap-2">
+              //           <Clock className="w-4 h-4" />
+              //           <span>{timeRange}</span>
+              //         </div>
+
+              //         <div className="flex items-center gap-2 pt-1">
+              //           <Info className="w-4 h-4" />
+              //           <span className="flex-1">
+              //             <strong>사용목적: </strong>
+              //             {reservation.purpose ?? "-"}
+              //           </span>
+              //         </div>
+
+              //           {/* 팀원 출력 */}
+              //           {reservation.team && reservation.team.length > 0 && (
+              //             <div className="flex items-start gap-2 pt-1">
+              //               <Info className="w-4 h-4" />
+              //               <span className="flex-1">
+              //                 <strong>팀원: </strong>
+              //                 {reservation.team.map((member, idx) => (
+              //                   <span key={idx} className="mr-2">
+              //                     {member.name}
+              //                   </span>
+              //                 ))}
+              //               </span>
+              //             </div>
+              //           )}
+
+            //         </div>
+            //       </div>
+            //     );
+            //   })
             ) : (
               <p className="text-muted-foreground text-center py-10">예약된 시설이 없습니다.</p>
             )}

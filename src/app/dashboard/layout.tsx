@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 
 import {
   SidebarProvider,
@@ -41,10 +43,6 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-/**
- * 🔐 JWT 기반 사용자 타입
- * (/auth/me 응답과 정확히 일치)
- */
 type UserView = {
   id: number;
   name: string;
@@ -56,70 +54,73 @@ type UserView = {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserView | null>(null);
   const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // const [unreadCount, setUnreadCount] = useState(0);
+
+  const [rentalPendingCount, setRentalPendingCount] = useState(0);
+  const [facilityPendingCount, setFacilityPendingCount] = useState(0);
+
+  const router = useRouter();
+  const pathname = usePathname();
+
+
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch("http://localhost:4000/my/notifications", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+    const fetchCount = async () => {
+      const res = await fetch(
+        "http://localhost:4000/notifications/unread-count",
+        { credentials: "include" }
+      );
 
-        if (!res.ok) return;
-
-        const data = await res.json();
-        setUnreadCount(data.unreadCount);
-      } catch (err) {
-        console.error(err);
-      }
+      const data = await res.json();
+      setNotificationCount(data.count);
     };
 
-    // 처음 한 번 실행
-    fetchNotifications();
-
-    // 🔁 10초마다 자동 갱신
-    const interval = setInterval(fetchNotifications, 10000);
+    fetchCount();
+    const interval = setInterval(fetchCount, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const handleUpdate = () => {
-      setUnreadCount(0);
-    };
+  // 알림 카운트
+  // useEffect(() => {
+  //   const fetchNotifications = async () => {
+  //     try {
+  //       const res = await fetch("/api/my/notifications", {
+  //         credentials: "include",
+  //       });
+  //       if (!res.ok) return;
 
-    window.addEventListener("notificationsUpdated", handleUpdate);
+  //       const data = await res.json();
+  //       setUnreadCount(data.unreadCount);
+  //     } catch (err) {
+  //       console.error(err);
+  //     }
+  //   };
 
-    return () => {
-      window.removeEventListener("notificationsUpdated", handleUpdate);
-    };
-  }, []);
+  //   fetchNotifications();
+  //   const interval = setInterval(fetchNotifications, 10000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
+  //  useEffect(() => {
+  //   const handleUpdate = () => setUnreadCount(0);
+  //   window.addEventListener("notificationsUpdated", handleUpdate);
+  //   return () => window.removeEventListener("notificationsUpdated", handleUpdate);
+  // }, []);
 
+  // 내 정보
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const token = localStorage.getItem("token");
-
-        if (!token) throw new Error("no token");
-
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
+        const res = await fetch("http://localhost:4000/auth/me", { credentials: "include" });
         if (!res.ok) throw new Error("unauthorized");
 
         const data: UserView = await res.json();
+        // console.log("🔥 /auth/me 응답:", data);
         setUser(data);
-      } catch {
-        localStorage.removeItem("token");
+      } catch (err) {
+        // console.log("❌ 인증 실패:", err);
         window.location.href = "/login";
       } finally {
         setLoading(false);
@@ -129,16 +130,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     fetchMe();
   }, []);
 
+  // ✅ ADMIN이면 자동 이동 (dashboard에서만)
+  // useEffect(() => {
+  //   if (loading) return;
+  //   if (!user) return;
+  //   if (user.role !== "ADMIN") return;
 
-  if (loading) {
-    return <div className="p-6">로딩 중...</div>;
-  }
+  //   // 이미 /admin이면 또 이동하지 않게
+  //   if (pathname === "/dashboard") {
+  //     router.replace("/admin");
+  //   }
 
+  //   router.replace("/admin");
+  // }, [loading, user, pathname, router]);
+
+  if (loading) return <div className="p-6">로딩 중...</div>;
   if (!user) return null;
 
   const displayName = user.name;
   const displayEmail = user.email;
   const avatarInitial = displayName[0]?.toUpperCase() ?? "?";
+
+//   useEffect(() => {
+//   if (!loading && user?.role === "ADMIN") {
+//     window.location.href = "/admin";
+//   }
+// }, [loading, user]);
 
   return (
     <SidebarProvider>
@@ -207,9 +224,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <Link href="/dashboard/requests">
                   <History />
                   <span>나의 대출 현황</span>
-                  {unreadCount > 0 && (
+                  {/* {unreadCount > 0 && (
                     <span className="ml-2 min-w-[20px] h-5 flex items-center justify-center bg-red-500 text-white text-xs rounded-full px-1">
                       {unreadCount}
+                    </span>
+                  )} */}
+                  {notificationCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                      {notificationCount}
                     </span>
                   )}
                 </Link>
@@ -230,7 +252,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </SidebarMenuItem>
 
 
-            {/* ✅ 관리자만 보이는 메뉴 */}
+            {/* 관리자만 보이는 메뉴 */}
             {user.role === "ADMIN" && (
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
@@ -259,9 +281,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => {
-                  // 🔓 JWT 로그아웃
-                  localStorage.removeItem("token");
+                onClick={async () => {
+                  await fetch("/api/auth/logout", {
+                    method: "POST",
+                    credentials: "include",
+                  });
                   window.location.href = "/login";
                 }}
               >

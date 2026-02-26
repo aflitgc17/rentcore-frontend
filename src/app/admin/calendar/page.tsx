@@ -20,8 +20,6 @@ import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 
-
-
 interface ReservationItem {
   equipment: {
     id: number;
@@ -45,7 +43,6 @@ interface CalendarReservation {
   items: ReservationItem[];
 }
 
-
 function getStatusLabel(status?: string) {
   switch (status) {
     case "REQUESTED":
@@ -58,7 +55,6 @@ function getStatusLabel(status?: string) {
       return status ?? "알 수 없음";
   }
 }
-
 
 function calculateMaxReturnDate(start: Date) {
   const day = start.getDay();
@@ -80,17 +76,15 @@ function calculateMaxReturnDate(start: Date) {
 function toDate(v: any): Date {
   if (!v) return new Date();
   if (v instanceof Date) return v;
-  return new Date(v); // ISO 문자열 등
+  return new Date(v); 
 }
 
-// FullCalendar는 end가 "배타"라서 마지막 날까지 칠하려면 +1일
 function addOneDay(d: Date) {
   const nd = new Date(d);
   nd.setDate(nd.getDate() + 1);
   return nd;
 }
 
-// date(자정 기준)이 start <= date < end 인지 체크
 function occursOn(date: Date, start: Date, endExclusive?: Date) {
   const d0 = new Date(date.getFullYear(), date.getMonth(), date.getDate()); // 자정
   const s0 = new Date(start.getFullYear(), start.getMonth(), start.getDate());
@@ -141,8 +135,7 @@ export default function CalendarPage() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
 
-  // const [reservedEquipments, setReservedEquipments] = useState<string[]>([]);
-  const [reservedEquipments, setReservedEquipments] = useState<number[]>([]);
+  const [reservedEquipments, setReservedEquipments] = useState<string[]>([]);
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -162,28 +155,66 @@ export default function CalendarPage() {
   const [subjectName, setSubjectName] = useState<string>("");
   const [purpose, setPurpose] = useState<string>("");
 
+  const [dayReservations, setDayReservations] = useState<CalendarReservation[]>([]);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
+
+  const timeOptions = Array.from({ length: 10 }, (_, i) =>
+    `${String(i + 9).padStart(2, "0")}:00`
+  );
+
+  useEffect(() => {
+    fetchCalendar();
+  }, []);
+
+
+  useEffect(() => {
+    const loadBaseData = async () => {
+      try {
+        const [userRes, equipRes] = await Promise.all([
+          fetch("/api/users"),
+          fetch("/api/equipments"),
+        ]);
+
+        setUsers(await userRes.json());
+        setEquipments(await equipRes.json());
+      } catch (err) {
+        console.error("기본 데이터 로딩 실패", err);
+      }
+    };
+
+    loadBaseData();
+  }, []);
+
+  
 
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch("http://localhost:4000/reservations/calendar");
+      const res = await fetch("/api/reservations", {
+        credentials: "include",
+      });
+
       const data = await res.json();
 
-      const approved = data.filter((r: any) => r.status === "APPROVED");
+      const approved = data.filter(
+        (r: any) => r.status === "APPROVED" || r.status === "REQUESTED"
+      );
 
-      const grouped: Record<string, CalendarReservation[]> = {};
+      const grouped: Record<string, any[]> = {};
 
-      approved.forEach((r: CalendarReservation) => {
-      
-        const rawDate = new Date(r.startDate);
+      approved.forEach((r: any) => {
+        const raw = new Date(r.startDate);
+
         const localDate = new Date(
-          rawDate.getFullYear(),
-          rawDate.getMonth(),
-          rawDate.getDate()
+          raw.getFullYear(),
+          raw.getMonth(),
+          raw.getDate()
         );
 
-        const key = format(localDate, "yyyy-MM-dd"); 
+        const key = format(localDate, "yyyy-MM-dd");
 
         if (!grouped[key]) {
           grouped[key] = [];
@@ -192,32 +223,14 @@ export default function CalendarPage() {
         grouped[key].push(r);
       });
 
-
-
-      Object.values(grouped).forEach((list: any[]) => {
-        list.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() -
-            new Date(b.createdAt).getTime()
-        );
-      });
-
       const list: FCEvent[] = Object.entries(grouped).map(
         ([date, reservations]) => {
-
-         
           const d = new Date(date + "T00:00:00");
-
-          const localStart = new Date(
-            d.getFullYear(),
-            d.getMonth(),
-            d.getDate()
-          );
 
           return {
             id: date,
             title: `${reservations.length}건`,
-            start: localStart,
+            start: d,
             allDay: true,
             extendedProps: {
               reservations,
@@ -226,76 +239,98 @@ export default function CalendarPage() {
         }
       );
 
-
       setEvents(list);
     } catch (err) {
-      console.error("캘린더 로딩 실패", err);
+      console.error("시설 캘린더 로딩 실패", err);
     }
   };
 
-  useEffect(() => {
-    fetchCalendar();
-  }, []);
 
   useEffect(() => {
+    if (!openCreateModal) return;
     if (!startDate || !endDate) return;
 
     const fetchConflictsForCreate = async () => {
       try {
-        const startStr = format(startDate, "yyyy-MM-dd");
-        const endStr = format(endDate, "yyyy-MM-dd");
+        const startStr = new Date(
+          `${format(startDate!, "yyyy-MM-dd")}T${startTime}`
+        ).toISOString();
+
+        const endStr = new Date(
+          `${format(endDate!, "yyyy-MM-dd")}T${endTime}`
+        ).toISOString();
 
         const res = await fetch(
-          `http://localhost:4000/reservations/conflicts?start=${startStr}&end=${endStr}`
+          `/api/reservations/conflicts?start=${startStr}&end=${endStr}`
         );
 
         const data = await res.json();
 
-        // 🔥 문자열로 변환해서 저장
-        // setReservedEquipments(data.map((id: number) => String(id)));
-        setReservedEquipments(data); // map(String) 제거
-
+        if (Array.isArray(data)) {
+          setReservedEquipments(data.map((id: number) => String(id)));
+        } else {
+          setReservedEquipments([]);
+        }
       } catch (err) {
         console.error("충돌 조회 실패", err);
       }
     };
 
     fetchConflictsForCreate();
-  }, [startDate, endDate]);
+  }, [openCreateModal, startDate, endDate, startTime, endTime]);
+
+  
 
 
   useEffect(() => {
-  if (!editRange?.from || !editRange?.to) return;
+    if (!openEditModal) return;
+    if (!editRange?.from || !editRange?.to) return;
 
-  const fetchConflicts = async () => {
-    try {
-  
-      const startStr = format(editRange.from!, "yyyy-MM-dd");
-      const endStr = format(editRange.to!, "yyyy-MM-dd");
+    const fetchConflicts = async () => {
+      try {
+        const startStr = new Date(
+          `${format(editRange.from!, "yyyy-MM-dd")}T${startTime}`
+        ).toISOString();
 
+        const endStr = new Date(
+          `${format(editRange.to!, "yyyy-MM-dd")}T${endTime}`
+        ).toISOString();
 
-      const res = await fetch(
-        `http://localhost:4000/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
-      );
+        const res = await fetch(
+          `/api/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
+        );
 
-      const data = await res.json();
+        const data = await res.json();
 
-      setEditReservedEquipments(data.map((id: number) => String(id)));
-    } catch (err) {
-      console.error("충돌 조회 실패", err);
-    }
-  };
+        if (Array.isArray(data)) {
+          setEditReservedEquipments(data.map((id: number) => String(id)));
+        } else {
+          setEditReservedEquipments([]);
+        }
+      } catch (err) {
+        console.error("충돌 조회 실패", err);
+      }
+    };
 
-  fetchConflicts();
-}, [editRange, clickedEvent?.id]);
-
+    fetchConflicts();
+  }, [openEditModal, editRange, clickedEvent?.id, startTime, endTime]);
 
 
 
   const renderEventContent = (arg: any) => {
     return (
-      <div className="text-xs font-medium">
-        {arg.event.title}
+      <div className="flex justify-center items-center">
+        <span
+          className="
+            px-3 py-1
+            text-xs font-semibold
+            rounded-full
+            bg-black
+            text-white
+          "
+        >
+          {arg.event.title.replace("  ", "")}
+        </span>
       </div>
     );
   };
@@ -321,18 +356,16 @@ export default function CalendarPage() {
 
 
     try {
-      const [userRes, equipRes] = await Promise.all([
-        fetch("http://localhost:4000/users"),
-        fetch("http://localhost:4000/equipments"),
-      ]);
+      // const [userRes, equipRes] = await Promise.all([
+      //   fetch("/api/users"),
+      //   fetch("/api/equipments"),
+      // ]);
 
-      const userData = await userRes.json();
-      const equipData = await equipRes.json();
-      // const reservedData = await reservedRes.json();
+      // const userData = await userRes.json();
+      // const equipData = await equipRes.json();
 
-      setUsers(userData);
-      setEquipments(equipData);
-      // setReservedEquipments(reservedData);
+      // setUsers(userData);
+      // setEquipments(equipData);
 
       setOpenCreateModal(true);
     } catch (err) {
@@ -346,7 +379,7 @@ export default function CalendarPage() {
 
     try {
       await fetch(
-        `http://localhost:4000/reservations/${clickedEvent.id}`,
+        `/api/reservations/${clickedEvent.id}`,
         { method: "DELETE" }
       );
 
@@ -359,23 +392,39 @@ export default function CalendarPage() {
     }
   };
 
+  
+
 
   const handleUpdateReservation = async () => {
+
     if (!clickedEvent || !editRange?.from || !editRange?.to) return;
 
+    const updateStartDateTime = new Date(
+      `${format(editRange.from!, "yyyy-MM-dd")}T${startTime}`
+    );
+
+    const updateEndDateTime = new Date(
+      `${format(editRange.to!, "yyyy-MM-dd")}T${endTime}`
+    );
+
     try {
-      await fetch(
-        `http://localhost:4000/reservations/${clickedEvent.id}`,
+      const res: Response = await fetch(
+        `/api/reservations/${clickedEvent.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            startDate: normalizeDate(editRange.from),
-            endDate: normalizeDate(editRange.to),
+            startDate: updateStartDateTime,
+            endDate: updateEndDateTime,
             equipmentIds: editEquipments.map(Number),
           }),
         }
       );
+
+      if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message ?? "수정 실패");
+    }
 
       toast({ title: "수정 완료" });
 
@@ -387,12 +436,18 @@ export default function CalendarPage() {
     }
   };
 
-
-
+  
 
   const handleCreateReservation = async () => {
-    console.log("보내는 startDate 원본:", startDate);
-    console.log("보내는 yyyy-MM-dd:", format(startDate!, "yyyy-MM-dd"));
+
+    const startDateTime = new Date(
+      `${format(startDate!, "yyyy-MM-dd")}T${startTime}`
+    );
+
+    const endDateTime = new Date(
+      `${format(endDate!, "yyyy-MM-dd")}T${endTime}`
+    );
+
     if (
     !selectedUser ||
     selectedEquipments.length === 0 ||
@@ -406,20 +461,19 @@ export default function CalendarPage() {
   }
 
   try {
-    const res = await fetch("http://localhost:4000/reservations/manual", {
+    const res = await fetch("/api/reservations/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: Number(selectedUser),
         equipmentIds: selectedEquipments.map(Number),
-        startDate: normalizeDate(startDate),
-        endDate: normalizeDate(endDate),
+        startDate: startDateTime,
+        endDate: endDateTime,
         subjectName,
         purpose, 
       }),
     });
 
-      // 🔥 이 부분 추가
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message);
@@ -444,35 +498,31 @@ export default function CalendarPage() {
   };
 
 
+  // const groupedByUser = (dayReservations ?? []).reduce(
+  //   (acc: Record<string, CalendarReservation[]>, cur) => {
 
+  //     const userName = cur.user?.name ?? "알 수 없음";
+  //     const from = format(new Date(cur.startDate), "yyyy-MM-dd");
+  //     const to = format(new Date(cur.endDate), "yyyy-MM-dd");
+  //     const subject = cur.subjectName ?? "";
+  //     const purpose = cur.purpose ?? "";
 
-  const groupedByUser = (dayEvents ?? []).reduce(
-    (acc: Record<string, CalendarReservation[]>, cur) => {
+  //     // 🔥 그룹 기준을 더 세분화
+  //     const key = `${userName}_${from}_${to}_${subject}_${purpose}`;
 
-      const userName = cur.user?.name ?? "알 수 없음";
-      const from = format(new Date(cur.startDate), "yyyy-MM-dd");
-      const to = format(new Date(cur.endDate), "yyyy-MM-dd");
-      const subject = cur.subjectName ?? "";
-      const purpose = cur.purpose ?? "";
+  //     if (!acc[key]) {
+  //       acc[key] = [];
+  //     }
 
-      // 🔥 그룹 기준을 더 세분화
-      const key = `${userName}_${from}_${to}_${subject}_${purpose}`;
-
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-
-      acc[key].push(cur);
-      return acc;
-    },
-    {}
-  );
-
-
+  //     acc[key].push(cur);
+  //     return acc;
+  //   },
+  //   {}
+  // );
 
 
   return (
-    <div className="p-6">
+   <div className="px-6 pt-2 pb-4">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">장비 대여 캘린더</h1>
         <div className="flex gap-3 text-sm">
@@ -482,45 +532,82 @@ export default function CalendarPage() {
       </div>
 
       <FullCalendar
-        ref={calendarRef}
-        plugins={[dayGridPlugin, interactionPlugin]}
+        plugins={[dayGridPlugin, interactionPlugin]} 
         initialView="dayGridMonth"
-        timeZone="local"
+        locale="ko"
+        headerToolbar={{
+          left: "",
+          center: "title",
+          right: "today prev,next",
+        }}
+        buttonText={{
+          today: "오늘",
+        }}
         events={events as EventInput[]}
-        height="80vh"
+
+        height="auto"
+        expandRows={true}
         eventDisplay="block"
-        eventContent={renderEventContent}
+        eventBackgroundColor="transparent"
+        eventBorderColor="transparent"
+        dayCellContent={(arg) => arg.date.getDate()} 
+        eventContent={(arg) => (
+          <div className="flex justify-center items-center">
+            <span
+              className="
+                px-3 py-1
+                text-xs font-semibold
+                rounded-full
+                bg-black 
+                text-white
+              "
+            >
+              {arg.event.title}
+            </span>
+          </div>
+        )}
+        eventClick={(info) => {
+          const reservations =
+            info.event.extendedProps?.reservations ?? [];
 
+          setDayReservations(reservations);
+          setOpenDayModal(true);
+        }}
+        dateClick={handleDateClick} 
 
+        weekends={true} // 그대로 두고
         dayCellClassNames={(arg) => {
           const day = arg.date.getDay();
           if (day === 0 || day === 6) {
-            return [
-              "bg-gray-100",
-              "text-gray-400",
-              "cursor-not-allowed",
-            ];
+            return ["bg-gray-100", "text-gray-400", "cursor-not-allowed"];
           }
           return [];
         }}
-
-        dateClick={(info) => {
-          const day = new Date(info.dateStr).getDay();
-          if (day === 0 || day === 6) return;
-          handleDateClick(info);
-        }}
-
-        eventClick={handleEventClick}
-  
       />
+      
 
       <Dialog open={openCreateModal} onOpenChange={setOpenCreateModal}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent
+          className="
+            sm:max-w-[520px]
+            max-h-[85vh]
+            flex flex-col
+            shadow-2xl
+            data-[state=open]:animate-in
+            data-[state=open]:fade-in-0
+            data-[state=open]:zoom-in-95
+            data-[state=open]:duration-200
+            data-[state=closed]:animate-out
+            data-[state=closed]:fade-out-0
+            data-[state=closed]:zoom-out-95
+            data-[state=closed]:duration-150
+          "
+        >
           <DialogHeader>
             <DialogTitle>관리자 수동 예약 등록</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+           <div className="flex-1 overflow-y-auto space-y-4 pr-2 py-2">
 
             {/* 대출 기간 */}
             <div>
@@ -546,11 +633,31 @@ export default function CalendarPage() {
                       next.setDate(date.getDate() + 1);
                       setEndDate(next);
                     }}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                   />
                 </PopoverContent>
               </Popover>
 
+              {/* <p className="text-sm text-muted-foreground mt-2 mb-1">시작 시간</p> */}
+              
+                <select
+                className="w-full h-10 border rounded px-3 text-sm"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+
               <p className="text-sm text-muted-foreground mt-4 mb-2">반납일</p>
+              
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -574,6 +681,19 @@ export default function CalendarPage() {
                   />
                 </PopoverContent>
               </Popover>
+
+              {/* <p className="text-sm text-muted-foreground mt-2 mb-1">반납 시간</p> */}
+                <select
+                className="w-full h-10 border rounded px-3 text-sm"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
             </div>
 
 
@@ -618,10 +738,11 @@ export default function CalendarPage() {
 
             <div className="border rounded p-3 h-40 overflow-y-auto space-y-2">
               {equipments.map((e) => {
-                // const isReserved = reservedEquipments.includes(e.id);
-                // const isReserved = reservedEquipments.includes(String(e.id));
-                const isReserved = reservedEquipments.includes(e.id);
-                const checked = selectedEquipments.includes(String(e.id));
+
+                const isReserved = reservedEquipments.includes(String(e.id));
+                const isSelected = selectedEquipments.includes(String(e.id));
+
+                const disabled = isReserved && !isSelected;
 
                 return (
                   <label
@@ -633,8 +754,8 @@ export default function CalendarPage() {
                     <input
                       type="checkbox"
                       value={e.id}
-                      disabled={isReserved}
-                      checked={checked}
+                      disabled={disabled}
+                      checked={selectedEquipments.includes(String(e.id))}
                       onChange={(ev) => {
                         if (ev.target.checked) {
                           setSelectedEquipments((prev) => [
@@ -654,8 +775,6 @@ export default function CalendarPage() {
                 );
               })}
             </div>
-
-
           </div>
 
           <DialogFooter>
@@ -669,10 +788,8 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-
-      {/* =======================
-              날짜별 예약 리스트 모달
-        ======================= */}
+      
+       {/* 날짜별 예약 리스트 모달 */}
         <Dialog open={openDayModal} onOpenChange={setOpenDayModal}>
           <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
@@ -683,17 +800,15 @@ export default function CalendarPage() {
             </DialogHeader>
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {Object.entries(groupedByUser).map(([key, reservations], idx) => (
+              {dayReservations.map((r, idx) => (
                 <div
-                  key={key}
-                  className="p-3 border rounded space-y-2 cursor-pointer hover:bg-gray-50 transition"
+                  key={r.id}
+                  className="p-3 border rounded cursor-pointer hover:bg-gray-50 transition"
                   onClick={() => {
-                    const r = reservations[0];
-
                     const event: FCEvent = {
                       id: String(r.id),
                       title: r.items
-                        ?.map(item => item.equipment?.name ?? "이름 없음")
+                        ?.map(i => i.equipment?.name ?? "")
                         .join(", "),
                       start: r.startDate,
                       extendedProps: {
@@ -704,10 +819,10 @@ export default function CalendarPage() {
                         rawFrom: new Date(r.startDate),
                         rawTo: new Date(r.endDate),
                         managementNumber: r.items
-                          ?.map(item => item.equipment?.managementNumber)
+                          ?.map(i => i.equipment?.managementNumber)
                           .filter(Boolean)
                           .join(", "),
-                        equipmentIds: r.items.map(item => String(item.equipment.id)),
+                        equipmentIds: r.items.map(i => String(i.equipment.id)),
                       },
                     };
 
@@ -717,45 +832,34 @@ export default function CalendarPage() {
                   }}
                 >
                   <p className="font-semibold">
-                    {idx + 1}. {reservations[0].user.name}
-                    {reservations[0].user.studentId && (
+                    {idx + 1}. {r.user?.name}
+                    {r.user?.studentId && (
                       <span className="text-sm text-muted-foreground ml-2">
-                        ({reservations[0].user.studentId})
+                        ({r.user.studentId})
                       </span>
                     )}
                   </p>
 
-                  {/* 구분 포인트 보여주기 */}
-                  <p className="text-xs text-muted-foreground ml-3">
-                    {format(new Date(reservations[0].startDate), "yyyy/MM/dd")} ~{" "}
-                    {format(new Date(reservations[0].endDate), "yyyy/MM/dd")}
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(r.startDate), "yyyy/MM/dd")} ~{" "}
+                    {format(new Date(r.endDate), "yyyy/MM/dd")}
                   </p>
 
-                  {reservations.map((r) => (
-                    <div
-                      key={r.id}
-                      className="text-sm text-muted-foreground ml-3"
-                    >
-                      - {r.items.map(i => i.equipment?.name).join(", ")}
-                    </div>
-                  ))}
+                  {/* <p className="text-sm text-muted-foreground">
+                    - {r.items?.map(i => i.equipment?.name).join(", ")}
+                  </p> */}
                 </div>
               ))}
             </div>
+
             <DialogFooter>
-              <Button onClick={() => setOpenDayModal(false)}>
-                닫기
-              </Button>
+              <Button onClick={() => setOpenDayModal(false)}>닫기</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
 
-
-
-      {/* =======================
-            이벤트 클릭 모달 (단건)
-        ======================= */}
+      {/* 이벤트 클릭 모달 */}
         <Dialog open={openEventModal} onOpenChange={setOpenEventModal}>
           <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
@@ -784,10 +888,10 @@ export default function CalendarPage() {
                   <p className="text-sm text-muted-foreground">대출 기간</p>
                   <p className="font-medium">
                     {clickedEvent.extendedProps?.rawFrom &&
-                      format(clickedEvent.extendedProps.rawFrom, "yyyy/MM/dd")}{" "}
+                      format(clickedEvent.extendedProps.rawFrom, "yyyy/MM/dd HH:mm")}{" "}
                     ~{" "}
                     {clickedEvent.extendedProps?.rawTo &&
-                      format(clickedEvent.extendedProps.rawTo, "yyyy/MM/dd")}
+                      format(clickedEvent.extendedProps.rawTo, "yyyy/MM/dd HH:mm")}
                   </p>
                 </div>
 
@@ -830,10 +934,15 @@ export default function CalendarPage() {
                 onClick={async () => {
                   if (!clickedEvent) return;
 
-                // 🔥 장비 목록 먼저 불러오기
-                const res = await fetch("http://localhost:4000/equipments");
-                const data = await res.json();
-                setEquipments(data);
+                  setStartTime(format(clickedEvent.extendedProps!.rawFrom!, "HH:mm"));
+                  setEndTime(format(clickedEvent.extendedProps!.rawTo!, "HH:mm"));
+                
+                
+
+                // 장비 목록 먼저 불러오기
+                // const res = await fetch("/api/equipments");
+                // const data = await res.json();
+                // setEquipments(data);
 
                   setEditRange({
                     from: clickedEvent.extendedProps?.rawFrom ?? undefined,
@@ -869,35 +978,72 @@ export default function CalendarPage() {
 
 
         <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
-        <DialogContent>
+            <DialogContent
+              className="
+                sm:max-w-[520px]
+                max-h-[85vh]
+                flex flex-col
+              "
+            >
+              {/* <Calendar
+                mode="range"
+                selected={editRange}
+                onSelect={(range) => setEditRange(range)}
+              /> */}
+              
           <DialogHeader>
             <DialogTitle>예약 수정</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            
-            {/* <Calendar
-              mode="single"
-              selected={editStartDate ?? undefined}
-              onSelect={(date) => setEditStartDate(date ?? null)}
-            />
-
-            <Calendar
-              mode="single"
-              selected={editEndDate ?? undefined}
-              onSelect={(date) => setEditEndDate(date ?? null)}
-            /> */}
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2 py-2">
 
             <Calendar
               mode="range"
               selected={editRange}
               onSelect={(range) => setEditRange(range)}
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return date < today;
+              }}
+        
             />
+          
+
+
+            <p className="text-sm text-muted-foreground">시작 시간</p>
+              <select
+                className="w-full border p-2 rounded"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+
+              <p className="text-sm text-muted-foreground">반납 시간</p>
+              <select
+                className="w-full border p-2 rounded"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              >
+                {timeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
 
             <div className="border rounded p-3 h-40 overflow-y-auto space-y-2">
               {equipments.map((e) => {
+
                 const checked = editEquipments.includes(String(e.id));
                 const isReserved = editReservedEquipments.includes(String(e.id));
+
+                const disabled = isReserved && !checked;
 
                 return (
                   <label
@@ -910,7 +1056,7 @@ export default function CalendarPage() {
                       type="checkbox"
                       value={e.id}
                       checked={checked}
-                      disabled={isReserved}
+                      disabled={isReserved && !checked}
                       onChange={(ev) => {
                         if (ev.target.checked) {
                           setEditEquipments((prev) => [...prev, String(e.id)]);
@@ -939,7 +1085,7 @@ export default function CalendarPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
+  
    ); 
 }

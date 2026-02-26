@@ -89,7 +89,6 @@ const formSchema = z.object({
   "생년월일 형식이 올바르지 않습니다 (YYYY-MM-DD)"
 ),
   phoneNumber: z.string().min(10, "유효한 전화번호를 입력해주세요.").regex(/^010\d{8}$/, "전화번호는 010으로 시작하는 11자리 숫자여야 합니다."),
-  // 접근 코드는 클라이언트에서 '검증'하지 않고, 서버에서 검증합니다.
   adminCode: z.string().min(1, "관리자 인증 코드를 입력해주세요."),
 }).refine(data => data.password === data.confirmPassword, {
   message: "비밀번호가 일치하지 않습니다.",
@@ -152,7 +151,7 @@ export default function AdminSignupPage() {
       description: "이제 관리자 로그인을 진행해주세요.",
     });
 
-    // ✅ 회원가입 후에는 로그인 페이지로
+    // 회원가입 후에는 로그인 페이지로
     router.replace("/login?role=admin");
   } catch (err: any) {
     toast({

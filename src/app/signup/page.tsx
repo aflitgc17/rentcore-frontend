@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+import { ko } from "date-fns/locale";
+
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 
@@ -24,7 +26,6 @@ import {
   PopoverContent
 } from "@/components/ui/popover";
 
-//  드롭다운용 Select import 추가
 import {
   Select,
   SelectTrigger,
@@ -90,14 +91,18 @@ const formSchema = z.object({
     }
   )
 
-  // 학생일 때만 학번 필수
   .refine(
   (data) => {
-    if (data.grade === "교수") return true;
-    return !!data.studentId && /^\d{10}$/.test(data.studentId);
+    if (!data.studentId) return false;
+
+    if (data.grade === "교수") {
+      return /^\d{7}$/.test(data.studentId);
+    }
+
+    return /^\d{10}$/.test(data.studentId);
   },
   {
-    message: "학번은 10자리 숫자여야 합니다.",
+    message: "학생은 10자리, 교수는 7자리 숫자 학번이어야 합니다.",
     path: ["studentId"],
   }
 )
@@ -136,7 +141,7 @@ export default function SignupPage() {
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-        const res = await fetch("http://localhost:4000/auth/register", {
+        const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -145,7 +150,7 @@ export default function SignupPage() {
             name: values.name,
             email: values.email,
             password: values.password,
-            studentId: values.grade === "교수" ? null : values.studentId,
+            studentId: values.studentId,
             grade: values.grade,
             department: values.department,
             birthday: values.birthday,
@@ -251,9 +256,12 @@ export default function SignupPage() {
                         <FormLabel>학번</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="2024000000"
+                            placeholder={
+                              selectedGrade === "교수"
+                                ? "1234567 (7자리)"
+                                : "2024000000 (10자리)"
+                            }
                             {...field}
-                            disabled={selectedGrade === "교수"}
                           />
                         </FormControl>
                         <FormMessage />
@@ -271,8 +279,7 @@ export default function SignupPage() {
                         defaultValue={field.value}
                         disabled={selectedGrade === "교수"}
                       >
-
-
+                        
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="학과를 선택해주세요" />
@@ -295,12 +302,46 @@ export default function SignupPage() {
                     control={form.control}
                     name="birthday"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col">
                         <FormLabel>생년월일</FormLabel>
-                        <FormControl>
-
-                          <Input type="date" {...field} />
-                        </FormControl>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className="justify-start text-left font-normal"
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "yyyy-MM-dd")
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    날짜를 선택해주세요
+                                  </span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  form.setValue("birthday", format(date, "yyyy-MM-dd"));
+                                }
+                              }}
+                              captionLayout="dropdown"
+                              fromYear={1950}
+                              toYear={new Date().getFullYear()}
+                              locale={ko}
+                              formatters={{
+                                formatMonthDropdown: (date) => format(date, "M월", { locale: ko }),
+                                formatMonthCaption: (date) => format(date, "yyyy년 M월", { locale: ko }),
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
