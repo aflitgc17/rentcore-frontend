@@ -365,16 +365,16 @@ function ReservationForm({
                   }
                 }}
                 disabled={(date) => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
 
-                  return (
-                    date < today ||      // 오늘 이전 막기
-                    date.getDay() === 0 || // 일요일
-                    date.getDay() === 6    // 토요일
-                  );
-                }}
-              />
+                return (
+                  date < today ||      // 오늘 이전 막기
+                  date.getDay() === 0 || // 일요일
+                  date.getDay() === 6    // 토요일
+                );
+              }}
+            />
             </PopoverContent>
           </Popover>
         </div>
@@ -457,10 +457,6 @@ function ReservationForm({
             className="w-full border rounded-md px-3 py-2 text-sm"
           >
             <option value="">선택</option>
-            {/* <option value="1-1">편집실 1-1</option>
-            <option value="1-2">편집실 1-2</option>
-            <option value="2-1">편집실 2-1</option>
-            <option value="2-2">편집실 2-2</option> */}
             <option value="편집실1-1">편집실1-1</option>
             <option value="편집실1-2">편집실1-2</option>
             <option value="편집실2-1">편집실2-1</option>
@@ -547,22 +543,6 @@ function ReservationForm({
           팀원 추가
         </Button>
       </div>
-
-        {/* {formData.team.length > 0 && (
-          <div className="space-y-2">
-            {formData.team.map((member, index) => (
-              <div key={`${member.studentId}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
-                <p>
-                  {member.name} ({member.studentId})
-                </p>
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeTeamMember(index)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )} */}
-      {/* </div> */}
 
       <div className="flex justify-end">
         <Button
