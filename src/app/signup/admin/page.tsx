@@ -11,6 +11,7 @@ import * as z from "zod";
 
 import { format } from "date-fns";
 import { CalendarIcon, ShieldCheck } from "lucide-react";
+import { ko } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
 import { 
@@ -203,15 +204,55 @@ export default function AdminSignupPage() {
                     <FormItem><FormLabel>비밀번호 확인</FormLabel><FormControl><PasswordInput placeholder="비밀번호 재입력" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   
-                  <FormField 
-                    control={form.control} 
-                    name="birthday" 
+                  <FormField
+                    control={form.control}
+                    name="birthday"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col">
                         <FormLabel>생년월일</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="justify-start text-left font-normal"
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "yyyy-MM-dd")
+                                ) : (
+                                  <span className="text-muted-foreground">날짜를 선택해주세요</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? new Date(field.value) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  form.setValue("birthday", format(date, "yyyy-MM-dd"), {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  });
+                                }
+                              }}
+                              captionLayout="dropdown"
+                              fromYear={1950}
+                              toYear={new Date().getFullYear()}
+                              locale={ko}
+                              formatters={{
+                                formatMonthDropdown: (date) => format(date, "M월", { locale: ko }),
+                                formatMonthCaption: (date) => format(date, "yyyy년 M월", { locale: ko }),
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+
                         <FormMessage />
                       </FormItem>
                     )}

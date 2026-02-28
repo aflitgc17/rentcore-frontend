@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Search, Edit, Trash2, MoreHorizontal } from "lucide-react";
 
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +84,27 @@ const enumerateDates = (from: Date, to: Date): Date[] => {
     return arr;
   };
 
+// ------------------ 관리번호 자연정렬 ------------------
+const compareManagementNumber = (a: string, b: string) => {
+  const pa = a.match(/^([A-Za-z]+)\s*-\s*(\d+)$/);
+  const pb = b.match(/^([A-Za-z]+)\s*-\s*(\d+)$/);
+
+  // 형식 안 맞으면 그냥 문자열 정렬
+  if (!pa || !pb) return a.localeCompare(b, "ko");
+
+  const prefixA = pa[1].toUpperCase();
+  const prefixB = pb[1].toUpperCase();
+
+  if (prefixA !== prefixB) {
+    return prefixA.localeCompare(prefixB);
+  }
+
+  const numA = Number(pa[2]);
+  const numB = Number(pb[2]);
+
+  return numA - numB;
+};
+
 export default function AdminEquipmentPage() {
   const { toast } = useToast();
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
@@ -108,14 +130,17 @@ export default function AdminEquipmentPage() {
     { from: Date; to: Date }[]
   >([]);
 
+  const [reservationLoading, setReservationLoading] = useState(false);
+
+  
+
   
 
   const reservedDates = useMemo(() => {
-    if (detailTab !== "calendar") return [];
-    return reservations.flatMap(({ from, to }) =>
-      enumerateDates(from, to)
-    );
-  }, [reservations, detailTab]);
+    return reservations.flatMap(({ from, to }) => enumerateDates(from, to));
+  }, [reservations]);
+
+  const reservedDatesForCalendar = detailTab === "calendar" ? reservedDates : [];
 
 
   const defaultMonth =
@@ -124,27 +149,33 @@ export default function AdminEquipmentPage() {
       : new Date();
 
 
-  const handleDetailOpen = async (item: Equipment) => {
+  const handleDetailOpen = (item: Equipment) => {
     setDetailItem(item);
     setIsDetailOpen(true);
     setDetailTab("info");
     setReservations([]);
+    setReservationLoading(true);
 
-    try {
-      const res = await fetch(`/api/equipments/${item.id}/reservations`);
-      if (!res.ok) return;
+    requestAnimationFrame(() => {
+      (async () => {
+        try {
+          const res = await fetch(`/api/equipments/${item.id}/reservations`);
+          if (!res.ok) return;
 
-      const data = await res.json();
-
-      setReservations(
-        data.map((r: any) => ({
-          from: new Date(r.startDate),
-          to: new Date(r.endDate),
-        }))
-      );
-    } catch (err) {
-      console.error("예약 조회 실패", err);
-    }
+          const data = await res.json();
+          setReservations(
+            data.map((r: any) => ({
+              from: new Date(r.startDate),
+              to: new Date(r.endDate),
+            }))
+          );
+        } catch (e) {
+          console.error("예약 조회 실패", e);
+        } finally {
+          setReservationLoading(false);
+        }
+      })();
+    });
   };
 
   const fetchEquipments = async () => {
@@ -159,20 +190,19 @@ export default function AdminEquipmentPage() {
     };
 
     const mapped: Equipment[] = data.map((item: any) => ({
-      id: String(item.id), 
+      id: String(item.id),
       name: item.name,
       managementNumber: item.managementNumber,
-      assetNumber: item.assetNumber,         
-      classification: item.classification,    
-      accessories: item.accessories,         
-      note: item.note,                      
+      assetNumber: item.assetNumber,
+      classification: item.classification,
+      accessories: item.accessories,
+      note: item.note,
       category: item.category,
       usageInfo: item.usageInfo,
       status: reverseStatusMap[item.status] ?? "available",
     }));
 
     setEquipmentList(mapped);
-
   } catch (err) {
     console.error("장비 조회 실패", err);
   }
@@ -266,7 +296,7 @@ export default function AdminEquipmentPage() {
   const cleanedRows = rows.filter((row) => row?.[0] && String(row[0]).includes("-"));
 
   const mappedData = cleanedRows.map((row) => ({
-  managementNumber: String(row?.[0] ?? "").trim(),
+  managementNumber: String(row?.[0] ?? "").trim().toUpperCase(),
   assetNumber: row?.[1] ?? "",
   category: row?.[2] ?? "",
   classification: row?.[3] ?? "",
@@ -274,6 +304,7 @@ export default function AdminEquipmentPage() {
   accessories: row?.[5] ?? "",
   note: row?.[6] ?? "",
   status: "AVAILABLE",   
+  // order: index,
 }));
 
 
@@ -432,20 +463,15 @@ export default function AdminEquipmentPage() {
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
       <DialogContent
         className="
-          max-w-2xl
-          max-h-[85vh]
-          overflow-y-auto
-          rounded-xl
-          p-8
-          transition-all
-          duration-300
-          ease-out
+          sm:max-w-[520px] max-h-[85vh] flex flex-col overflow-hidden shadow-lg
+
           data-[state=open]:animate-in
-          data-[state=closed]:animate-out
           data-[state=open]:fade-in-0
-          data-[state=closed]:fade-out-0
-          data-[state=open]:zoom-in-95
-          data-[state=closed]:zoom-out-95
+          data-[state=open]:duration-200
+          data-[state=open]:ease-out
+
+          data-[state=closed]:duration-0
+          data-[state=closed]:animate-none
         "
       >
         <DialogHeader className="space-y-1">
@@ -498,10 +524,17 @@ export default function AdminEquipmentPage() {
         {/* ---------------- 예약 현황 ---------------- */}
         {detailTab === "calendar" && (
           <div className="mt-4">
+
+            {reservationLoading && (
+              <div className="mb-2 text-sm text-muted-foreground">
+                예약 불러오는 중...
+              </div>
+            )}
+
             <Calendar
-              key={`${detailItem?.id}-${reservations.length}`}
+              key={detailItem?.id} 
               mode="multiple"
-              selected={reservedDates}
+              selected={reservedDatesForCalendar}  
               defaultMonth={defaultMonth}
               showOutsideDays
               onSelect={() => {}}

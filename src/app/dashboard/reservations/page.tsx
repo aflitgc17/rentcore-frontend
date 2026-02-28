@@ -187,7 +187,7 @@ function ReservationForm({
   facilityName: "편집실" | "녹음실";
 }) {
   const [formData, setFormData] = useState(initialFormState);
-  const [teamMember, setTeamMember] = useState({ name: "", studentId: "" });
+  // const [teamMember, setTeamMember] = useState({ name: "", studentId: "" });
   const timeOptions = generateTimeOptions();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   
@@ -251,17 +251,17 @@ function ReservationForm({
     };
   }, [formData.date, formData.startTime, formData.endTime, formData.computer, facilityName]);
 
-  const handleTeamMemberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setTeamMember((prev) => ({ ...prev, [name]: value }));
-  };
+  // const handleTeamMemberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const { name, value } = e.target;
+  //   setTeamMember((prev) => ({ ...prev, [name]: value }));
+  // };
 
-  const addTeamMember = () => {
-    if (teamMember.name && teamMember.studentId) {
-      setFormData((prev) => ({ ...prev, team: [...prev.team, teamMember] }));
-      setTeamMember({ name: "", studentId: "" });
-    }
-  };
+  // const addTeamMember = () => {
+  //   if (teamMember.name && teamMember.studentId) {
+  //     setFormData((prev) => ({ ...prev, team: [...prev.team, teamMember] }));
+  //     setTeamMember({ name: "", studentId: "" });
+  //   }
+  // };
 
   const removeTeamMember = (index: number) => {
     setFormData((prev) => ({ ...prev, team: prev.team.filter((_, i) => i !== index) }));
@@ -269,55 +269,41 @@ function ReservationForm({
 
   const isFormComplete = () => {
     const { date, startTime, endTime, subjectName, purpose } = formData;
-    return Boolean(userInfo && date && startTime && endTime && subjectName && purpose);
+    return Boolean(
+      userInfo &&
+      date &&
+      startTime &&
+      endTime &&
+      subjectName &&
+      purpose
+    );
   };
+
+  // const cleanedTeam = formData.team.filter(
+  //   (m) => m.name.trim() && m.studentId.trim()
+  // );
+  //   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormComplete() || !userInfo) return;
     if (conflicts.length > 0) return;
-    // if (!selectedFacility) {
-    //   toast({
-    //     title: "시설을 선택하세요",
-    //     variant: "destructive",
-    //   });
-    //   return { success: false };
-    // }
 
-    // let facilityNameToSend = "";
-
-    // if (facilityName === "녹음실") {
-    //   facilityNameToSend = "녹음실";
-    // } else {
-    //   if (!data.computer) {
-    //     toast({
-    //       title: "사용 컴퓨터를 선택하세요",
-    //       variant: "destructive",
-    //     });
-    //     return { success: false };
-    //   }
-
-    //   facilityNameToSend = `편집실 ${data.computer}`;
-    // }
-
-    // 마지막 입력칸 값도 자동 반영
-    let finalTeam = formData.team;
-    if (teamMember.name && teamMember.studentId) {
-      finalTeam = [...finalTeam, teamMember];
-    }
+    const cleanedTeam = formData.team.filter(
+      (m) => m.name.trim() && m.studentId.trim()
+    );
 
     const submissionData = {
       ...userInfo,
       ...formData,
-      team: finalTeam,
-      headcount: finalTeam.length + 1,
+      team: cleanedTeam,
+      headcount: cleanedTeam.length + 1,
     };
 
     const result = await onSubmit(submissionData);
 
     if (result?.success) {
       setFormData(initialFormState);
-      setTeamMember({ name: "", studentId: "" });
     }
   };
 
@@ -378,9 +364,16 @@ function ReservationForm({
                     }));
                   }
                 }}
-                disabled={(date) =>
-                  date < new Date() // 오늘 이전 날짜 막기
-                }
+                disabled={(date) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  return (
+                    date < today ||      // 오늘 이전 막기
+                    date.getDay() === 0 || // 일요일
+                    date.getDay() === 6    // 토요일
+                  );
+                }}
               />
             </PopoverContent>
           </Popover>
@@ -497,42 +490,65 @@ function ReservationForm({
       <div className="space-y-4 rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <Label>팀원 추가 (선택)</Label>
-          <p className="text-sm text-muted-foreground">총 인원: {formData.team.length + 1}명</p>
+          <p className="text-sm text-muted-foreground">
+            총 인원: {formData.team.filter(m => m.name && m.studentId).length + 1}명
+          </p>
         </div>
 
-        <div className="flex items-end gap-2">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="teamMemberName" className="text-xs">
-              팀원 이름
-            </Label>
+        {formData.team.map((member, index) => (
+          <div key={index} className="flex items-end gap-2">
             <Input
-              id="teamMemberName"
-              name="name"
-              placeholder="홍길동"
-              value={teamMember.name}
-              onChange={handleTeamMemberChange}
+              placeholder="팀원 이름"
+              value={member.name}
+              onChange={(e) => {
+                const newTeam = [...formData.team];
+                newTeam[index].name = e.target.value;
+                setFormData((prev) => ({ ...prev, team: newTeam }));
+              }}
             />
-          </div>
 
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="teamMemberId" className="text-xs">
-              팀원 학번
-            </Label>
             <Input
-              id="teamMemberId"
-              name="studentId"
-              placeholder="20240000"
-              value={teamMember.studentId}
-              onChange={handleTeamMemberChange}
+              placeholder="팀원 학번"
+              value={member.studentId}
+              onChange={(e) => {
+                const newTeam = [...formData.team];
+                newTeam[index].studentId = e.target.value;
+                setFormData((prev) => ({ ...prev, team: newTeam }));
+              }}
             />
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  team: prev.team.filter((_, i) => i !== index),
+                }))
+              }
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
           </div>
+        ))}
 
-          <Button type="button" variant="outline" size="icon" onClick={addTeamMember}>
-            <PlusCircle className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* 여기! map 밖에 있어야 함 */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            setFormData((prev) => ({
+              ...prev,
+              team: [...prev.team, { name: "", studentId: "" }],
+            }))
+          }
+        >
+          팀원 추가
+        </Button>
+      </div>
 
-        {formData.team.length > 0 && (
+        {/* {formData.team.length > 0 && (
           <div className="space-y-2">
             {formData.team.map((member, index) => (
               <div key={`${member.studentId}-${index}`} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
@@ -545,8 +561,8 @@ function ReservationForm({
               </div>
             ))}
           </div>
-        )}
-      </div>
+        )} */}
+      {/* </div> */}
 
       <div className="flex justify-end">
         <Button
@@ -581,22 +597,6 @@ function ReservationForm({
         });
         return { success: false };
       }
-
-      // let facilityNameToSend = "";
-
-      // if (facilityName === "녹음실") {
-      //   facilityNameToSend = "녹음실";
-      // } else {
-      //   if (!data.computer) {
-      //     toast({
-      //       title: "사용 컴퓨터를 선택하세요",
-      //       variant: "destructive",
-      //     });
-      //     return { success: false };
-      //   }
-      //     // facilityNameToSend = "편집실"; 
-      //     facilityNameToSend = data.computer;
-      // }
 
       let facilityNameToSend = "";
 

@@ -4,7 +4,7 @@ import FullCalendar from "@fullcalendar/react";
 import { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { useState, useEffect } from "react";
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
   DialogFooter,
@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/simple-toast";
 import { format } from "date-fns";
 
-import { useRef } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 
 interface ReservationItem {
@@ -116,6 +116,10 @@ type FCEvent = {
   };
 };
 
+const timeOptions = Array.from({ length: 10 }, (_, i) =>
+    `${String(i + 9).padStart(2, "0")}:00`
+  );
+
 export default function CalendarPage() {
   const { toast } = useToast();
   const [events, setEvents] = useState<FCEvent[]>([]);
@@ -136,11 +140,15 @@ export default function CalendarPage() {
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
 
   const [reservedEquipments, setReservedEquipments] = useState<string[]>([]);
+  const [conflictLoading, setConflictLoading] = useState(false);
+  const [editConflictLoading, setEditConflictLoading] = useState(false);
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
   const calendarRef = useRef<any>(null);  
+
+  
 
   const [openEditModal, setOpenEditModal] = useState(false);
   const [editStartDate, setEditStartDate] = useState<Date | null>(null);
@@ -158,12 +166,19 @@ export default function CalendarPage() {
   const [dayReservations, setDayReservations] = useState<CalendarReservation[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
+  const reservedSet = useMemo(() => new Set(reservedEquipments), [reservedEquipments]);
+  const editReservedSet = useMemo(() => new Set(editReservedEquipments), [editReservedEquipments]);
+
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
 
-  const timeOptions = Array.from({ length: 10 }, (_, i) =>
-    `${String(i + 9).padStart(2, "0")}:00`
-  );
+  const [createHeavyReady, setCreateHeavyReady] = useState(false);
+  const [editHeavyReady, setEditHeavyReady] = useState(false);
+
+  const [openStartPicker, setOpenStartPicker] = useState(false);
+  const [openEndPicker, setOpenEndPicker] = useState(false);
+
+
 
   useEffect(() => {
     fetchCalendar();
@@ -187,6 +202,25 @@ export default function CalendarPage() {
 
     loadBaseData();
   }, []);
+
+
+  useEffect(() => {
+    if (!openCreateModal) {
+      setCreateHeavyReady(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setCreateHeavyReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [openCreateModal]);
+
+  useEffect(() => {
+    if (!openEditModal) {
+      setEditHeavyReady(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setEditHeavyReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [openEditModal]);
 
   
 
@@ -248,73 +282,91 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!openCreateModal) return;
+    if (!createHeavyReady) return; 
     if (!startDate || !endDate) return;
 
-    const fetchConflictsForCreate = async () => {
-      try {
-        const startStr = new Date(
-          `${format(startDate!, "yyyy-MM-dd")}T${startTime}`
-        ).toISOString();
+    const t = setTimeout(() => {
+      const fetchConflictsForCreate = async () => {
+        try {
+          setConflictLoading(true);
 
-        const endStr = new Date(
-          `${format(endDate!, "yyyy-MM-dd")}T${endTime}`
-        ).toISOString();
+          const startStr = new Date(
+            `${format(startDate, "yyyy-MM-dd")}T${startTime}`
+          ).toISOString();
 
-        const res = await fetch(
-          `/api/reservations/conflicts?start=${startStr}&end=${endStr}`
-        );
+          const endStr = new Date(
+            `${format(endDate, "yyyy-MM-dd")}T${endTime}`
+          ).toISOString();
 
-        const data = await res.json();
+          const res = await fetch(
+            `/api/reservations/conflicts?start=${startStr}&end=${endStr}`
+          );
 
-        if (Array.isArray(data)) {
-          setReservedEquipments(data.map((id: number) => String(id)));
-        } else {
+          const data = await res.json();
+
+          if (Array.isArray(data)) {
+            setReservedEquipments(data.map((id: number) => String(id)));
+          } else {
+            setReservedEquipments([]);
+          }
+        } catch (err) {
+          console.error("충돌 조회 실패", err);
           setReservedEquipments([]);
+        } finally {
+          setConflictLoading(false);
         }
-      } catch (err) {
-        console.error("충돌 조회 실패", err);
-      }
-    };
+      };
 
-    fetchConflictsForCreate();
+      fetchConflictsForCreate();
+    }, 150);
+
+    return () => clearTimeout(t);
   }, [openCreateModal, startDate, endDate, startTime, endTime]);
-
-  
+    
 
 
   useEffect(() => {
     if (!openEditModal) return;
+    if (!editHeavyReady) return; 
     if (!editRange?.from || !editRange?.to) return;
 
-    const fetchConflicts = async () => {
-      try {
-        const startStr = new Date(
-          `${format(editRange.from!, "yyyy-MM-dd")}T${startTime}`
-        ).toISOString();
+    const t = setTimeout(() => {
+      const fetchConflicts = async () => {
+        try {
+          setEditConflictLoading(true);
 
-        const endStr = new Date(
-          `${format(editRange.to!, "yyyy-MM-dd")}T${endTime}`
-        ).toISOString();
+          const startStr = new Date(
+            `${format(editRange.from!, "yyyy-MM-dd")}T${startTime}`
+          ).toISOString();
 
-        const res = await fetch(
-          `/api/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
-        );
+          const endStr = new Date(
+            `${format(editRange.to!, "yyyy-MM-dd")}T${endTime}`
+          ).toISOString();
 
-        const data = await res.json();
+          const res = await fetch(
+            `/api/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
+          );
 
-        if (Array.isArray(data)) {
-          setEditReservedEquipments(data.map((id: number) => String(id)));
-        } else {
+          const data = await res.json();
+
+          if (Array.isArray(data)) {
+            setEditReservedEquipments(data.map((id: number) => String(id)));
+          } else {
+            setEditReservedEquipments([]);
+          }
+        } catch (err) {
+          console.error("충돌 조회 실패", err);
           setEditReservedEquipments([]);
+        } finally {
+          setEditConflictLoading(false);
         }
-      } catch (err) {
-        console.error("충돌 조회 실패", err);
-      }
-    };
+      };
 
-    fetchConflicts();
+      fetchConflicts();
+    }, 150);
+
+    return () => clearTimeout(t);
   }, [openEditModal, editRange, clickedEvent?.id, startTime, endTime]);
-
 
 
   const renderEventContent = (arg: any) => {
@@ -340,38 +392,21 @@ export default function CalendarPage() {
   };
 
 
-  const handleDateClick = async (info: any) => {
+  const handleDateClick = (info: any) => {
     const clicked = new Date(info.dateStr);
 
-    const day = clicked.getDay();
-    if (day === 0 || day === 6) return;
+    // 1) 모달부터 먼저 띄우기 (애니메이션 프레임 확보)
+    setOpenCreateModal(true);
 
-    setSelectedDate(info.dateStr);
-    setStartDate(clicked);
+    // 2) 다음 프레임에 무거운 state 세팅
+    requestAnimationFrame(() => {
+      setSelectedDate(info.dateStr);
+      setStartDate(clicked);
 
-    const defaultEnd = new Date(clicked);
-    defaultEnd.setDate(clicked.getDate() + 1);
-
-    setEndDate(defaultEnd);
-
-
-    try {
-      // const [userRes, equipRes] = await Promise.all([
-      //   fetch("/api/users"),
-      //   fetch("/api/equipments"),
-      // ]);
-
-      // const userData = await userRes.json();
-      // const equipData = await equipRes.json();
-
-      // setUsers(userData);
-      // setEquipments(equipData);
-
-      setOpenCreateModal(true);
-    } catch (err) {
-      console.error(err);
-      toast({ title: "데이터 로딩 실패", variant: "destructive" });
-    }
+      const defaultEnd = new Date(clicked);
+      defaultEnd.setDate(clicked.getDate() + 1);
+      setEndDate(defaultEnd);
+    });
   };
 
   const handleDeleteReservation = async () => {
@@ -498,29 +533,6 @@ export default function CalendarPage() {
   };
 
 
-  // const groupedByUser = (dayReservations ?? []).reduce(
-  //   (acc: Record<string, CalendarReservation[]>, cur) => {
-
-  //     const userName = cur.user?.name ?? "알 수 없음";
-  //     const from = format(new Date(cur.startDate), "yyyy-MM-dd");
-  //     const to = format(new Date(cur.endDate), "yyyy-MM-dd");
-  //     const subject = cur.subjectName ?? "";
-  //     const purpose = cur.purpose ?? "";
-
-  //     // 🔥 그룹 기준을 더 세분화
-  //     const key = `${userName}_${from}_${to}_${subject}_${purpose}`;
-
-  //     if (!acc[key]) {
-  //       acc[key] = [];
-  //     }
-
-  //     acc[key].push(cur);
-  //     return acc;
-  //   },
-  //   {}
-  // );
-
-
   return (
    <div className="px-6 pt-2 pb-4">
       <div className="mb-4 flex items-center justify-between">
@@ -575,32 +587,23 @@ export default function CalendarPage() {
         }}
         dateClick={handleDateClick} 
 
-        weekends={true} // 그대로 두고
-        dayCellClassNames={(arg) => {
-          const day = arg.date.getDay();
-          if (day === 0 || day === 6) {
-            return ["bg-gray-100", "text-gray-400", "cursor-not-allowed"];
-          }
-          return [];
-        }}
+        weekends={true} 
+        
       />
       
 
       <Dialog open={openCreateModal} onOpenChange={setOpenCreateModal}>
         <DialogContent
           className="
-            sm:max-w-[520px]
-            max-h-[85vh]
-            flex flex-col
-            shadow-2xl
+            sm:max-w-[520px] max-h-[85vh] flex flex-col overflow-hidden shadow-lg
+
             data-[state=open]:animate-in
             data-[state=open]:fade-in-0
-            data-[state=open]:zoom-in-95
             data-[state=open]:duration-200
-            data-[state=closed]:animate-out
-            data-[state=closed]:fade-out-0
-            data-[state=closed]:zoom-out-95
-            data-[state=closed]:duration-150
+            data-[state=open]:ease-out
+
+            data-[state=closed]:duration-0
+            data-[state=closed]:animate-none
           "
         >
           <DialogHeader>
@@ -608,12 +611,16 @@ export default function CalendarPage() {
           </DialogHeader>
 
            <div className="flex-1 overflow-y-auto space-y-4 pr-2 py-2">
+              {!createHeavyReady ? (
+                <div className="py-10 text-sm text-muted-foreground">불러오는 중...</div>
+              ) : (
+                <>
 
             {/* 대출 기간 */}
             <div>
               <p className="text-sm text-muted-foreground mb-2">대출 시작일</p>
 
-              <Popover>
+              <Popover open={openStartPicker} onOpenChange={setOpenStartPicker}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left font-normal">
                     {startDate ? format(startDate, "yyyy/MM/dd") : "날짜 선택"}
@@ -622,23 +629,27 @@ export default function CalendarPage() {
                 </PopoverTrigger>
 
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={startDate ?? undefined}
-                    onSelect={(date) => {
-                      if (!date) return;
-                      setStartDate(date);
+                  {openStartPicker && (
+                    <Calendar
+                      mode="single"
+                      selected={startDate ?? undefined}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        setStartDate(date);
 
-                      const next = new Date(date);
-                      next.setDate(date.getDate() + 1);
-                      setEndDate(next);
-                    }}
-                    disabled={(date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      return date < today;
-                    }}
-                  />
+                        const next = new Date(date);
+                        next.setDate(date.getDate() + 1);
+                        setEndDate(next);
+
+                        setOpenStartPicker(false); 
+                      }}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                    />
+                  )}
                 </PopoverContent>
               </Popover>
 
@@ -659,7 +670,7 @@ export default function CalendarPage() {
               <p className="text-sm text-muted-foreground mt-4 mb-2">반납일</p>
               
 
-              <Popover>
+              <Popover open={openEndPicker} onOpenChange={setOpenEndPicker}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left font-normal">
                     {endDate ? format(endDate, "yyyy/MM/dd") : "날짜 선택"}
@@ -668,17 +679,18 @@ export default function CalendarPage() {
                 </PopoverTrigger>
 
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={endDate ?? undefined}
-                    onSelect={(date) => {
-                      if (!date) return;
-                      setEndDate(date);
-                    }}
-                    disabled={(date) =>
-                      startDate ? date < startDate : false
-                    }
-                  />
+                  {openEndPicker && (
+                    <Calendar
+                      mode="single"
+                      selected={endDate ?? undefined}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        setEndDate(date);
+                        setOpenEndPicker(false);
+                      }}
+                      disabled={(date) => (startDate ? date < startDate : false)}
+                    />
+                  )}
                 </PopoverContent>
               </Popover>
 
@@ -699,7 +711,7 @@ export default function CalendarPage() {
 
             {/* 사용자 선택 */}
             <div>
-              <p className="text-sm text-muted-foreground mb-1">빌릴 사람</p>
+              <p className="text-sm text-muted-foreground mb-1">신청자</p>
               <select
                 className="w-full border p-2 rounded"
                 value={selectedUser}
@@ -739,9 +751,9 @@ export default function CalendarPage() {
             <div className="border rounded p-3 h-40 overflow-y-auto space-y-2">
               {equipments.map((e) => {
 
-                const isReserved = reservedEquipments.includes(String(e.id));
-                const isSelected = selectedEquipments.includes(String(e.id));
-
+                const id = String(e.id);
+                const isReserved = reservedSet.has(id);
+                const isSelected = selectedEquipments.includes(id);
                 const disabled = isReserved && !isSelected;
 
                 return (
@@ -769,13 +781,17 @@ export default function CalendarPage() {
                         }
                       }}
                     />
+                    
                     [{e.managementNumber}] {e.name || "이름 없음"}
                     {isReserved && " (이미 예약됨)"}
                   </label>
                 );
               })}
             </div>
+            </>
+            )}
           </div>
+          
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
@@ -794,9 +810,9 @@ export default function CalendarPage() {
           <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
               <DialogTitle>해당 날짜 대여 목록</DialogTitle>
-              <DialogDescription>
+              {/* <DialogDescription>
                 신청 순서대로 정렬된 목록입니다.
-              </DialogDescription>
+              </DialogDescription> */}
             </DialogHeader>
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -978,13 +994,19 @@ export default function CalendarPage() {
 
 
         <Dialog open={openEditModal} onOpenChange={setOpenEditModal}>
-            <DialogContent
-              className="
-                sm:max-w-[520px]
-                max-h-[85vh]
-                flex flex-col
-              "
-            >
+          <DialogContent
+            className="
+              sm:max-w-[520px] max-h-[85vh] flex flex-col overflow-hidden shadow-lg
+
+              data-[state=open]:animate-in
+              data-[state=open]:fade-in-0
+              data-[state=open]:duration-200
+              data-[state=open]:ease-out
+
+              data-[state=closed]:duration-0
+              data-[state=closed]:animate-none
+            "
+          >
               {/* <Calendar
                 mode="range"
                 selected={editRange}
@@ -996,6 +1018,10 @@ export default function CalendarPage() {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-2 py-2">
+            {!editHeavyReady ? (
+              <div className="py-10 text-sm text-muted-foreground">불러오는 중...</div>
+            ) : (
+              <>
 
             <Calendar
               mode="range"
@@ -1008,8 +1034,6 @@ export default function CalendarPage() {
               }}
         
             />
-          
-
 
             <p className="text-sm text-muted-foreground">시작 시간</p>
               <select
@@ -1040,8 +1064,9 @@ export default function CalendarPage() {
             <div className="border rounded p-3 h-40 overflow-y-auto space-y-2">
               {equipments.map((e) => {
 
-                const checked = editEquipments.includes(String(e.id));
-                const isReserved = editReservedEquipments.includes(String(e.id));
+                const id = String(e.id);
+                const checked = editEquipments.includes(id);
+                const isReserved = editReservedSet.has(id);
 
                 const disabled = isReserved && !checked;
 
@@ -1073,6 +1098,8 @@ export default function CalendarPage() {
                 );
               })}
             </div>
+            </>
+            )}
           </div>
 
           <DialogFooter>

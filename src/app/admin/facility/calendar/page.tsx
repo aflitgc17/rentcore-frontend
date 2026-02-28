@@ -24,6 +24,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/simple-toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+
 type FCEvent = {
   id: string;
   title: string;
@@ -32,6 +35,11 @@ type FCEvent = {
   extendedProps?: {
     reservations: any[];
   };
+};
+
+type TeamMember = {
+  name: string;
+  studentId: string;
 };
 
 export default function FacilityCalendarPage() {
@@ -64,9 +72,20 @@ export default function FacilityCalendarPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [facilities, setFacilities] = useState<any[]>([]);
 
-  const timeOptions = Array.from({ length: 10 }, (_, i) =>
-    `${String(i + 9).padStart(2, "0")}:00`
-  );
+  const [subjectName, setSubjectName] = useState("");
+  const [purpose, setPurpose] = useState("");
+  
+
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [memberName, setMemberName] = useState("");
+  const [memberStudentId, setMemberStudentId] = useState("");
+
+
+  const timeOptions = Array.from({ length: 48 }, (_, i) => {
+    const hour = Math.floor(i / 2);
+    const minute = i % 2 === 0 ? "00" : "30";
+    return `${String(hour).padStart(2, "0")}:${minute}`;
+  });
 
   const handleCreateReservation = async () => {
     if (!selectedUser || !selectedFacility || !startDate || !endDate) {
@@ -90,6 +109,9 @@ export default function FacilityCalendarPage() {
           facilityId: Number(selectedFacility),
           startAt: start,
           endAt: end,
+          subjectName,
+          purpose,
+          team,
         }),
       });
 
@@ -212,7 +234,7 @@ export default function FacilityCalendarPage() {
       ============================== */}
 
       <FullCalendar
-        plugins={[dayGridPlugin, interactionPlugin]} // 🔥 timeGrid 제거
+        plugins={[dayGridPlugin, interactionPlugin]} 
         initialView="dayGridMonth"
         locale="ko"
         headerToolbar={{
@@ -270,13 +292,12 @@ export default function FacilityCalendarPage() {
       />
 
       <Dialog open={openCreateModal} onOpenChange={setOpenCreateModal}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>관리자 직접 예약 등록</DialogTitle>
+            <DialogTitle>관리자 수동 예약 등록</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-
+          <div className="space-y-4 overflow-y-auto overflow-x-hidden pr-2 flex-1">
             {/* 사용자 선택 */}
             <select
               className="w-full border p-2 rounded"
@@ -307,7 +328,9 @@ export default function FacilityCalendarPage() {
 
             {/* 날짜 선택 */}
             <Popover>
+               <p className="text-sm text-muted-foreground mb-2">날짜 선택</p>
               <PopoverTrigger asChild>
+                
                 <button className="w-full border p-2 rounded text-left">
                   {selectedDate
                     ? format(selectedDate, "yyyy-MM-dd")
@@ -351,7 +374,100 @@ export default function FacilityCalendarPage() {
               ))}
             </select>
 
+            {/* 교과목명 입력 */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">교과목명</p>
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+              />
+            </div>
+
+            {/* 사용 목적 */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">사용 목적</p>
+              <textarea
+                className="w-full border p-2 rounded resize-none"
+                rows={3}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+              />
+            </div>
+
+            {/* 팀원 추가 */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">팀원 추가</p>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="이름"
+                  className="flex-1 border p-2 rounded"
+                  value={memberName}
+                  onChange={(e) => setMemberName(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="학번"
+                  className="flex-1 border p-2 rounded"
+                  value={memberStudentId}
+                  onChange={(e) => setMemberStudentId(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    if (!memberName) return;
+
+                    setTeam([
+                      ...team,
+                      { name: memberName, studentId: memberStudentId },
+                    ]);
+
+                    setMemberName("");
+                    setMemberStudentId("");
+                  }}
+                >
+                  추가
+                </Button>
+              </div>
+
+              {/* 팀원 리스트 */}
+              {team.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {team.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center text-sm border rounded p-2"
+                    >
+                      <span>
+                        {m.name}
+                        {m.studentId && (
+                          <span className="text-muted-foreground ml-1">
+                            ({m.studentId})
+                          </span>
+                        )}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="text-red-500 text-xs"
+                        onClick={() =>
+                          setTeam(team.filter((_, i) => i !== idx))
+                        }
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
@@ -372,9 +488,9 @@ export default function FacilityCalendarPage() {
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>해당 날짜 예약 목록</DialogTitle>
-            <DialogDescription>
+            {/* <DialogDescription>
               신청 순서대로 표시됩니다.
-            </DialogDescription>
+            </DialogDescription> */}
           </DialogHeader>
 
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -472,6 +588,25 @@ export default function FacilityCalendarPage() {
                   <p className="text-sm text-muted-foreground">목적</p>
                   <p>{clickedReservation.purpose}</p>
                 </div>
+              )}
+
+              {clickedReservation.team &&
+                clickedReservation.team.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">팀원</p>
+                    <div className="mt-2 space-y-1">
+                      {clickedReservation.team.map((member: any, idx: number) => (
+                        <p key={idx} className="text-sm">
+                          • {member.name}
+                          {member.studentId && (
+                            <span className="text-muted-foreground ml-1">
+                              ({member.studentId})
+                            </span>
+                          )}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
               )}
             </div>
           )}

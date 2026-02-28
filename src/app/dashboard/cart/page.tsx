@@ -15,18 +15,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import type { DateRange } from "react-day-picker";
+// import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/simple-toast";
 import { useRouter } from "next/navigation";
 
 
-function startOfDay(d: Date) {
-  const x = new Date(d); x.setHours(0,0,0,0); return x;
-}
-function endOfDay(d: Date) {
-  const x = new Date(d); x.setHours(23,59,59,999); return x;
-}
+// function startOfDay(d: Date) {
+//   const x = new Date(d); x.setHours(0,0,0,0); return x;
+// }
+// function endOfDay(d: Date) {
+//   const x = new Date(d); x.setHours(23,59,59,999); return x;
+// }
 
 
 const countBusinessDays = (from: Date, to: Date) => {
@@ -122,6 +122,8 @@ export default function CartPage() {
     }
     return hours;
   }, []);
+  const [conflictIds, setConflictIds] = useState<string[]>([]);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   
 
@@ -145,6 +147,8 @@ export default function CartPage() {
     setCart(stored);
     setHydrated(true);
   }, []);
+
+  
 
   useEffect(() => {
     if (hydrated) writeCart(cart);
@@ -174,7 +178,9 @@ export default function CartPage() {
   };
 
   // ===== 대여 기간 상태/헬퍼 =====
-  const [range, setRange] = useState<DateRange | undefined>();
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
 
@@ -184,41 +190,43 @@ export default function CartPage() {
     return d;
   }, []);
 
-  const fromAt = range?.from ?? null;
-  const toAt = range?.to ?? null;
+  // const fromAt = range?.from ?? null;
+  // const toAt = range?.to ?? null;
+
+  
 
   useEffect(() => {
-    if (!fromAt || !toAt) {
+    if (!startDate || !endDate) {
       setRangeError(null);
       return;
     }
 
-    if (fromAt.getDay() === 0) {
-      setRangeError("시작일은 일요일을 선택할 수 없습니다.");
+    if (startDate.getDay() === 0) {
+      setRangeError("대여 시작일은 일요일을 선택할 수 없습니다.");
       return;
     }
 
-    if (toAt.getDay() === 0) {
-      setRangeError("종료일은 일요일을 선택할 수 없습니다.");
+    if (endDate.getDay() === 0) {
+      setRangeError("반납일은 일요일을 선택할 수 없습니다.");
       return;
     }
 
-    const maxEndDate = getMaxAllowedEndDate(fromAt);
+    const maxEndDate = getMaxAllowedEndDate(startDate);
 
     if (!maxEndDate) {
       setRangeError("토요일과 일요일은 시작일로 선택할 수 없습니다.");
       return;
     }
 
-    // ✅ 같은 날일 때 시간 검사
-    if (fromAt.getTime() === toAt.getTime()) {
-      if (startTime >= endTime) {
-        setRangeError("같은 날은 종료 시간이 시작 시간보다 늦어야 합니다.");
-        return;
-      }
+    if (
+      startDate > endDate ||
+      (startDate.getTime() === endDate.getTime() && startTime >= endTime)
+    ) {
+      setRangeError("반납 일시는 대여 시작 이후여야 합니다.");
+      return;
     }
 
-    if (toAt > maxEndDate) {
+    if (endDate > maxEndDate) {
       setRangeError(
         `해당 시작일은 ${format(maxEndDate, "yyyy-MM-dd")} 까지만 대여 가능합니다.`
       );
@@ -226,14 +234,52 @@ export default function CartPage() {
     }
 
     setRangeError(null);
-  }, [fromAt, toAt, startTime, endTime]);
+  }, [startDate, endDate, startTime, endTime]);
 
-  const validRange = !!fromAt && !!toAt && !rangeError;
+
+
+
+  const validRange = !!startDate && !!endDate && !rangeError;
 
   const validTime =
   !!startTime &&
   !!endTime &&
   startTime < endTime;
+
+  useEffect(() => {
+  if (!validRange || cartItems.length === 0) {
+    setConflictIds([]);
+    return;
+  }
+
+  const checkConflicts = async () => {
+    try {
+      setCheckingConflict(true);
+
+      const equipmentIds = cartItems.map((it) => it.id);
+
+      const res = await fetch("/api/rental-requests/conflicts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          equipmentIds,
+          from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
+          to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
+        }),
+      });
+
+      const conflicts = await res.json();
+      setConflictIds(conflicts);
+    } catch (e) {
+      console.error("conflict check error:", e);
+    } finally {
+      setCheckingConflict(false);
+    }
+  };
+
+  checkConflicts();
+}, [validRange, startDate, endDate, startTime, endTime, cartItems]);
 
 
 
@@ -291,8 +337,8 @@ export default function CartPage() {
             },
             body: JSON.stringify({
             equipmentIds,
-            from: fromAt,
-            to: toAt,
+            from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
+            to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
             }),
         }
         );
@@ -320,8 +366,8 @@ export default function CartPage() {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            from: `${format(fromAt!, "yyyy-MM-dd")}T${startTime}`,
-            to: `${format(toAt!, "yyyy-MM-dd")}T${endTime}`,
+            from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
+            to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
             subjectName,     
             purpose,        
             items: cartItems.map((item) => ({
@@ -336,7 +382,7 @@ export default function CartPage() {
 
       // 성공 처리
       clearCart();
-      setRange(undefined);
+      // setRange(undefined);
       setSubmissionSuccess(true);
       
     } catch (e) {
@@ -423,81 +469,106 @@ export default function CartPage() {
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">대여 기간</h2>
           <span className="text-sm font-medium">
-  {validRange
-    ? `${format(fromAt!, "M/d")} ${startTime} 
-       ~ ${format(toAt!, "M/d")} ${endTime}`
-    : "기간을 선택하세요"}
-</span>
+            {validRange
+            ? `${format(startDate!, "M/d")} ${startTime} 
+              ~ ${format(endDate!, "M/d")} ${endTime}`
+            : "기간을 선택하세요"}
+          </span>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          {/* 날짜 범위 */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-start w-[260px]">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {range?.from && range?.to
-                  ? `${format(range.from, "yyyy-MM-dd")} ~ ${format(
-                      range.to,
-                      "yyyy-MM-dd"
-                    )}`
-                  : "기간 선택(달력)"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0" align="start">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">대여 시작 </label>
 
-              <Calendar
-              mode="range"
-              selected={range}
-              onSelect={setRange}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="justify-start w-[220px]">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {startDate
+                ? format(startDate, "yyyy-MM-dd")
+                : "날짜 선택"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0">
+            <Calendar
+              mode="single"
+              selected={startDate}
+              onSelect={setStartDate}
               disabled={(date) =>
                 date < today || date.getDay() === 0 || date.getDay() === 6
               }
               initialFocus
             />
-            </PopoverContent>
-          </Popover>
-          {rangeError && (
-            <p className="text-sm text-red-500 mt-2">
-              {rangeError}
-            </p>
-          )}
-        </div>
+          </PopoverContent>
+        </Popover>
 
-        <div className="flex gap-3 items-center">
-          <div className="space-y-1">
-            <label className="text-sm font-medium mr-2">시작 시간</label>
-            <select
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="border rounded-md px-3 py-2 w-[140px]"
-            >
-              {timeOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium mr-2">종료 시간</label>
-            <select
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="border rounded-md px-3 py-2 w-[140px]"
-            >
-              {timeOptions
-                .filter((t) => t > startTime)
-                .map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-            </select>
-          </div>
-        </div>
+        <select
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+          className="border rounded-md px-3 py-2 w-[140px]"
+        >
+          {timeOptions.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
       </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">반납       </label>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="justify-start w-[220px]">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {endDate
+                ? format(endDate, "yyyy-MM-dd")
+                : "날짜 선택"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0">
+            <Calendar
+              mode="single"
+              selected={endDate}
+              onSelect={setEndDate}
+              disabled={(date) =>
+                date < (startDate ?? today) || date.getDay() === 0 || date.getDay() === 6
+              }
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+
+        <select
+          value={endTime}
+          onChange={(e) => setEndTime(e.target.value)}
+          className="border rounded-md px-3 py-2 w-[140px]"
+        >
+          {timeOptions
+            .filter((t) => t > startTime)
+            .map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+        </select>
+      </div>
+      </div>
+      {rangeError && (
+        <p className="text-sm text-destructive font-medium">
+          {rangeError}
+        </p>
+      )}
+      {conflictIds.length > 0 && (
+        <div className="text-sm text-destructive font-medium">
+          이미 예약된 장비:
+          <ul className="list-disc ml-5">
+            {cartItems
+              .filter((item) => conflictIds.includes(item.id))
+              .map((item) => (
+                <li key={item.id}>
+                  {item.name} ({item.managementNumber})
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
 
       {/* 교과목 / 사용목적 입력 */}
@@ -560,7 +631,8 @@ export default function CartPage() {
                 submitting ||
                 !validRange ||
                 !subjectName.trim() ||
-                !purpose.trim()
+                !purpose.trim() ||
+                conflictIds.length > 0
               }
             >
             {submitting ? "신청 중..." : "대여 신청하기"}

@@ -77,10 +77,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
 
     fetchCount();
+
     const interval = setInterval(fetchCount, 5000);
 
-    return () => clearInterval(interval);
+    const handleUpdate = () => {
+      setNotificationCount(0);   // 즉시 제거 (UX 부드럽게)
+      fetchCount();              // 서버 값 재동기화
+    };
+
+    window.addEventListener("notificationsUpdated", handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notificationsUpdated", handleUpdate);
+    };
   }, []);
+
+  
 
   // 알림 카운트
   // useEffect(() => {
