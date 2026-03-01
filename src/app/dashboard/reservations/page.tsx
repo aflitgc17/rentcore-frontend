@@ -45,7 +45,11 @@ const RECORDING_ROOM_RULES = [
 /* =========================
    타입
 ========================= */
-type TeamMember = { name: string; studentId: string };
+type TeamMember = {
+  name: string;
+  studentId: string;
+  department: string;
+};
 
 type Facility = {
   id: number;
@@ -290,7 +294,10 @@ function ReservationForm({
     if (conflicts.length > 0) return;
 
     const cleanedTeam = formData.team.filter(
-      (m) => m.name.trim() && m.studentId.trim()
+      (m) =>
+        m.name.trim() &&
+        m.studentId.trim() &&
+        m.department.trim()
     );
 
     const submissionData = {
@@ -494,14 +501,15 @@ function ReservationForm({
         {formData.team.map((member, index) => (
           <div key={index} className="flex items-end gap-2">
             <Input
-              placeholder="팀원 이름"
-              value={member.name}
+              placeholder="팀원 학과"
+              value={member.department}
               onChange={(e) => {
                 const newTeam = [...formData.team];
-                newTeam[index].name = e.target.value;
+                newTeam[index].department = e.target.value;
                 setFormData((prev) => ({ ...prev, team: newTeam }));
               }}
             />
+
 
             <Input
               placeholder="팀원 학번"
@@ -509,6 +517,16 @@ function ReservationForm({
               onChange={(e) => {
                 const newTeam = [...formData.team];
                 newTeam[index].studentId = e.target.value;
+                setFormData((prev) => ({ ...prev, team: newTeam }));
+              }}
+            />
+
+            <Input
+              placeholder="팀원 이름"
+              value={member.name}
+              onChange={(e) => {
+                const newTeam = [...formData.team];
+                newTeam[index].name = e.target.value;
                 setFormData((prev) => ({ ...prev, team: newTeam }));
               }}
             />
@@ -536,7 +554,7 @@ function ReservationForm({
           onClick={() =>
             setFormData((prev) => ({
               ...prev,
-              team: [...prev.team, { name: "", studentId: "" }],
+              team: [...prev.team, { name: "", studentId: "", department: "" }],
             }))
           }
         >

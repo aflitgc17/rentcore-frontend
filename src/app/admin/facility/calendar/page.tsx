@@ -40,6 +40,7 @@ type FCEvent = {
 type TeamMember = {
   name: string;
   studentId: string;
+  department: string;
 };
 
 export default function FacilityCalendarPage() {
@@ -79,6 +80,7 @@ export default function FacilityCalendarPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [memberName, setMemberName] = useState("");
   const [memberStudentId, setMemberStudentId] = useState("");
+  const [memberDepartment, setMemberDepartment] = useState("");
 
 
   const timeOptions = Array.from({ length: 48 }, (_, i) => {
@@ -400,34 +402,49 @@ export default function FacilityCalendarPage() {
             <div>
               <p className="text-sm text-muted-foreground mb-2">팀원 추가</p>
 
-              <div className="flex gap-2">
+              <div className="grid grid-cols-[1fr_1fr_1fr_60px] gap-2">
                 <input
                   type="text"
-                  placeholder="이름"
-                  className="flex-1 border p-2 rounded"
-                  value={memberName}
-                  onChange={(e) => setMemberName(e.target.value)}
+                  placeholder="학과"
+                  className="w-full border p-2 rounded"
+                  value={memberDepartment}
+                  onChange={(e) => setMemberDepartment(e.target.value)}
                 />
+
                 <input
                   type="text"
                   placeholder="학번"
-                  className="flex-1 border p-2 rounded"
+                  className="w-full border p-2 rounded"
                   value={memberStudentId}
                   onChange={(e) => setMemberStudentId(e.target.value)}
                 />
+
+                <input
+                  type="text"
+                  placeholder="이름"
+                  className="w-full border p-2 rounded"
+                  value={memberName}
+                  onChange={(e) => setMemberName(e.target.value)}
+                />
+                
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => {
-                    if (!memberName) return;
+                    if (!memberName || !memberStudentId || !memberDepartment) return;
 
                     setTeam([
                       ...team,
-                      { name: memberName, studentId: memberStudentId },
+                      {
+                        name: memberName,
+                        studentId: memberStudentId,
+                        department: memberDepartment,
+                      },
                     ]);
 
                     setMemberName("");
                     setMemberStudentId("");
+                    setMemberDepartment("");
                   }}
                 >
                   추가
@@ -442,13 +459,9 @@ export default function FacilityCalendarPage() {
                       key={idx}
                       className="flex justify-between items-center text-sm border rounded p-2"
                     >
-                      <span>
-                        {m.name}
-                        {m.studentId && (
-                          <span className="text-muted-foreground ml-1">
-                            ({m.studentId})
-                          </span>
-                        )}
+                      {m.name}
+                      <span className="text-muted-foreground ml-1">
+                        ({m.studentId} · {m.department})
                       </span>
 
                       <button
@@ -467,8 +480,7 @@ export default function FacilityCalendarPage() {
             </div>
           </div>
 
-          
-
+        
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCreateModal(false)}>
               취소
@@ -598,11 +610,9 @@ export default function FacilityCalendarPage() {
                       {clickedReservation.team.map((member: any, idx: number) => (
                         <p key={idx} className="text-sm">
                           • {member.name}
-                          {member.studentId && (
-                            <span className="text-muted-foreground ml-1">
-                              ({member.studentId})
-                            </span>
-                          )}
+                          <span className="text-muted-foreground ml-1">
+                            ({member.studentId} · {member.department})
+                          </span>
                         </p>
                       ))}
                     </div>
@@ -623,8 +633,8 @@ export default function FacilityCalendarPage() {
                 setStartTime(format(start, "HH:mm"));
                 setEndTime(format(end, "HH:mm"));
 
-                setSelectedFacility(clickedReservation.facility?.id);
-                setSelectedFacility(String(clickedReservation.facility?.id));
+                // setSelectedFacility(clickedReservation.facility?.id);
+                setSelectedFacility(String(clickedReservation.facility?.id ?? ""));
                 setOpenEditModal(true);
               }}
             >

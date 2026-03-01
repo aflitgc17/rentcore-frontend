@@ -125,7 +125,9 @@ const EquipmentTable = ({
                 {item.assetNumber}
               </TableCell>
 
-              <TableCell className="font-medium">{item.name}</TableCell>
+              <TableCell className="font-medium">
+                {item.name?.trim() ? item.name : "이름 없음"}
+              </TableCell>
 
               <TableCell>
                 <Button 
@@ -338,7 +340,9 @@ export default function EquipmentPage() {
         >
         <DialogContent aria-describedby="equipment-detail">
           <DialogHeader>
-            <DialogTitle>{viewTarget?.name} 상세보기</DialogTitle>
+            <DialogTitle>
+              {viewTarget?.name?.trim() ? viewTarget.name : "이름 없음"} 상세보기
+            </DialogTitle>
 
             <div className="mt-3 flex gap-2">
               <Button

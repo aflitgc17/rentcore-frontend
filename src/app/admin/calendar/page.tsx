@@ -178,6 +178,8 @@ export default function CalendarPage() {
   const [openStartPicker, setOpenStartPicker] = useState(false);
   const [openEndPicker, setOpenEndPicker] = useState(false);
 
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+
 
 
   useEffect(() => {
@@ -979,7 +981,7 @@ export default function CalendarPage() {
 
               <Button
                 variant="destructive"
-                onClick={handleDeleteReservation}
+                onClick={() => setOpenDeleteConfirm(true)}
               >
                 삭제
               </Button>
@@ -1108,6 +1110,55 @@ export default function CalendarPage() {
             </Button>
             <Button onClick={handleUpdateReservation}>
               수정 완료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+      {/* ==============================
+        삭제 확인 모달
+      ============================== */}
+
+      <Dialog open={openDeleteConfirm} onOpenChange={setOpenDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>예약 삭제</DialogTitle>
+            <DialogDescription>
+              정말 이 예약을 삭제하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpenDeleteConfirm(false)}
+            >
+              취소
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!clickedEvent) return;
+
+                try {
+                  await fetch(
+                    `/api/reservations/${clickedEvent.id}`,
+                    { method: "DELETE" }
+                  );
+
+                  toast({ title: "삭제 완료" });
+
+                  setOpenDeleteConfirm(false);
+                  setOpenEventModal(false);
+                  fetchCalendar();
+                } catch {
+                  toast({ title: "삭제 실패", variant: "destructive" });
+                }
+              }}
+            >
+              삭제
             </Button>
           </DialogFooter>
         </DialogContent>
