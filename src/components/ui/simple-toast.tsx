@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* 화면에 실제 렌더링 */}
-      <div className="fixed bottom-6 right-6 z-50 space-y-3">
+      <div className="fixed bottom-6 right-6 z-[9999] space-y-3">
         {toasts.map((t) => (
           <div
             key={t.id}

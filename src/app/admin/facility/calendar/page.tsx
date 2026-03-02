@@ -98,12 +98,11 @@ export default function FacilityCalendarPage() {
     if (!selectedDate) return;
 
     const baseDate = format(selectedDate, "yyyy-MM-dd");
-
     const start = new Date(`${baseDate}T${startTime}`);
     const end = new Date(`${baseDate}T${endTime}`);
 
     try {
-      await fetch("/api/facility-reservations/manual", {
+      const res = await fetch("/api/facility-reservations/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,41 +116,74 @@ export default function FacilityCalendarPage() {
         }),
       });
 
-      toast({ title: "예약 등록 완료" });
-      setOpenCreateModal(false);
-      fetchCalendar();
-    } catch {
-      toast({ title: "등록 실패", variant: "destructive" });
-    }
-  };
+      const data = await res.json();
+
+          if (!res.ok) {
+            toast({
+              title: data.message || "등록 실패",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          toast({ title: "예약 등록 완료" });
+          setOpenCreateModal(false);
+          fetchCalendar();
+
+        } catch (err) {
+          toast({
+            title: "서버 연결 오류",
+            variant: "destructive",
+          });
+        }
+      };
 
 
   const handleUpdateReservation = async () => {
-    if (!clickedReservation) return;
+  if (!clickedReservation) return;
+  if (!selectedDate) return;
 
-    if (!selectedDate) return;
+  const baseDate = format(selectedDate, "yyyy-MM-dd");
+  const start = new Date(`${baseDate}T${startTime}`);
+  const end = new Date(`${baseDate}T${endTime}`);
 
-    const baseDate = format(selectedDate, "yyyy-MM-dd");
+  try {
+    const res = await fetch(
+      `/api/facility-reservations/${clickedReservation.id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startAt: start,
+          endAt: end,
+          facilityId: Number(selectedFacility),
+        }),
+      }
+    );
 
-    const start = new Date(`${baseDate}T${startTime}`);
-    const end = new Date(`${baseDate}T${endTime}`);
+    const data = await res.json();
 
-    await fetch(`/api/facility-reservations/${clickedReservation.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startAt: start,
-        endAt: end,
-        facilityId: Number(selectedFacility),
-      }),
-    });
+    if (!res.ok) {
+      toast({
+        title: data.message || "수정 실패",
+        variant: "destructive",
+      });
+      return;
+    }
 
     toast({ title: "수정 완료" });
 
     setOpenEditModal(false);
     setOpenEventModal(false);
     fetchCalendar();
-  };
+
+  } catch (err) {
+    toast({
+      title: "서버 연결 오류",
+      variant: "destructive",
+    });
+  }
+};
 
   /* ==============================
      날짜별 그룹 구조로 변경

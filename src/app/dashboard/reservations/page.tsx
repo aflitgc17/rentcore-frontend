@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 
+
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export default function ReservationsPage() {
@@ -21,6 +22,7 @@ export default function ReservationsPage() {
   const { profile, loading } = useCurrentUser();
   const [submitting, setSubmitting] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  
 
 
 const EDITING_ROOM_RULES = [
@@ -194,6 +196,40 @@ function ReservationForm({
   // const [teamMember, setTeamMember] = useState({ name: "", studentId: "" });
   const timeOptions = generateTimeOptions();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+
+  const [justAddedIndex, setJustAddedIndex] = useState<number | null>(null);
+
+  // 새로 추가된 줄의 "학과" input에 포커스 주려고 ref 배열로 관리
+  const deptInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const addTeamMember = () => {
+    setFormData((prev) => {
+      const nextIndex = prev.team.length;
+
+      // 방금 추가된 index 저장 → UI 하이라이트에 사용
+      setJustAddedIndex(nextIndex);
+
+      return {
+        ...prev,
+        team: [...prev.team, { name: "", studentId: "", department: "" }],
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (justAddedIndex === null) return;
+
+    // 1) 새 줄 학과 input 포커스
+    const el = deptInputRefs.current[justAddedIndex];
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    // 2) 1.2초 후 하이라이트 해제
+    const t = setTimeout(() => setJustAddedIndex(null), 1200);
+    return () => clearTimeout(t);
+  }, [justAddedIndex]);
   
 
   // 겹침 상태
@@ -498,9 +534,51 @@ function ReservationForm({
           </p>
         </div>
 
+        {/* ✅ 팀원 요약 칩 */}
+        <div className="flex flex-wrap gap-2">
+          {formData.team.length === 0 ? (
+            <p className="text-xs text-muted-foreground">추가된 팀원이 없어요.</p>
+          ) : (
+            formData.team.map((m, idx) => {
+              const label =
+                (m.department?.trim() || "학과 미입력") +
+                " · " +
+                (m.studentId?.trim() || "학번 미입력") +
+                " · " +
+                (m.name?.trim() || "이름 미입력");
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    // 칩 클릭하면 해당 팀원 입력줄로 이동(가시성 + UX)
+                    const el = deptInputRefs.current[idx];
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    el?.focus();
+                  }}
+                  className="text-xs px-2 py-1 rounded-full border bg-muted/30 hover:bg-muted/60 transition"
+                  title="클릭하면 해당 팀원 입력줄로 이동"
+                >
+                  {label}
+                </button>
+              );
+            })
+          )}
+        </div>
+
         {formData.team.map((member, index) => (
-          <div key={index} className="flex items-end gap-2">
+          <div
+            key={index}
+            className={[
+              "flex items-end gap-2 rounded-md p-2 transition",
+              justAddedIndex === index ? "bg-muted/60 ring-1 ring-primary/40" : "",
+            ].join(" ")}
+          >
             <Input
+              ref={(el) => {
+                deptInputRefs.current[index] = el;
+              }}
               placeholder="팀원 학과"
               value={member.department}
               onChange={(e) => {
@@ -548,16 +626,7 @@ function ReservationForm({
         ))}
 
         {/* 여기! map 밖에 있어야 함 */}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            setFormData((prev) => ({
-              ...prev,
-              team: [...prev.team, { name: "", studentId: "", department: "" }],
-            }))
-          }
-        >
+        <Button type="button" variant="outline" onClick={addTeamMember}>
           팀원 추가
         </Button>
       </div>

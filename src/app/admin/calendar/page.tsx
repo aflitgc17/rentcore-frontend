@@ -116,9 +116,13 @@ type FCEvent = {
   };
 };
 
-const timeOptions = Array.from({ length: 10 }, (_, i) =>
-    `${String(i + 9).padStart(2, "0")}:00`
-  );
+// const timeOptions = Array.from({ length: 10 }, (_, i) =>
+//     `${String(i + 9).padStart(2, "0")}:00`
+//   );
+
+const timeOptions = Array.from({ length: 24 }, (_, h) =>
+  `${String(h).padStart(2, "0")}:00`
+);
 
 export default function CalendarPage() {
   const { toast } = useToast();
