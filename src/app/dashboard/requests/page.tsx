@@ -227,9 +227,10 @@ export default function MyStatusPage() {
     const markAsRead = async () => {
       await fetch(`${API_BASE}/my/notifications/read`, {
         method: "PATCH",
-        headers: {
-          credentials: "include",
-        },
+        credentials: "include",
+        // headers: {
+        //   credentials: "include",
+        // },
       });
 
       // 이거 추가
