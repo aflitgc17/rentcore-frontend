@@ -52,12 +52,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
 
  const { pendingCount, setPendingCount } = usePendingRequest();
-// {pendingCount > 0 && (
-//   <Badge variant="destructive">
-//     {pendingCount}
-//   </Badge>
-// )}
-
 
 
 useEffect(() => {

@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await fetch("http://${API_BASE}/auth/me", { credentials: "include" });
+        const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
         if (!res.ok) throw new Error("unauthorized");
 
         const data: UserView = await res.json();

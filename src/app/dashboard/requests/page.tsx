@@ -246,7 +246,7 @@ export default function MyStatusPage() {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
       const res = await fetch(
-        `http://${API_BASE}/reservations/${realId}/print`,
+        `${API_BASE}/reservations/${realId}/print`,
         {
           credentials: "include",
         }
@@ -276,7 +276,7 @@ export default function MyStatusPage() {
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
       const res = await fetch(
-        `http://${API_BASE}/facility-reservations/${reservationId}/print`,
+        `${API_BASE}/facility-reservations/${reservationId}/print`,
         {
           credentials: "include",
         }
