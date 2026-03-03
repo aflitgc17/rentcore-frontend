@@ -14,7 +14,7 @@ export function useCurrentUser() {
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await fetch("/api/auth/me", {
+        const res = await fetch("https://rentcore-backend.onrender.com/api/auth/me", {
           credentials: "include",
         });
 

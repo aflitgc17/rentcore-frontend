@@ -141,7 +141,7 @@ export default function SignupPage() {
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-        const res = await fetch("/api/auth/register", {
+        const res = await fetch("https://rentcore-backend.onrender.com/api/auth/register", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

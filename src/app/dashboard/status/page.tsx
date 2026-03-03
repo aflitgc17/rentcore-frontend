@@ -46,7 +46,7 @@ export default function FacilityCalendarLikeScreenshot() {
       const params =
         facility === "전체" ? "" : `?facility=${encodeURIComponent(facility)}`;
 
-      const res = await fetch(`/api/facility-reservations${params}`, {
+      const res = await fetch(`https://rentcore-backend.onrender.com/api/facility-reservations${params}`, {
         credentials: "include",
       });
 

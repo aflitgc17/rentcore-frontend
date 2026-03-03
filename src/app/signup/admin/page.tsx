@@ -119,7 +119,7 @@ export default function AdminSignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
   setLoading(true);
   try {
-    const res = await fetch("/api/admin/signup", {
+    const res = await fetch("https://rentcore-backend.onrender.com/api/admin/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

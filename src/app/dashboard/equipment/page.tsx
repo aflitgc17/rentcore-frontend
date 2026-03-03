@@ -176,7 +176,7 @@ export default function EquipmentPage() {
 
     useEffect(() => {
       const fetchEquipments = async () => {
-        const res = await fetch("/api/equipments");
+        const res = await fetch("https://rentcore-backend.onrender.com/api/equipments");
         if (!res.ok) return;
 
         const data = await res.json();
@@ -250,7 +250,7 @@ export default function EquipmentPage() {
 
       const fetchReservations = async () => {
         const res = await fetch(
-          `/api/equipments/${viewTarget.id}/reservations`
+          `https://rentcore-backend.onrender.com/api/equipments/${viewTarget.id}/reservations`
         );
         if (!res.ok) return;
 

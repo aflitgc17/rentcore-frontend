@@ -115,7 +115,7 @@ export default function AdminRequestsPage() {
       if (type !== "ALL") q.set("type", type);
 
       const res = await fetch(
-        `/api/admin/requests?${q.toString()}`,
+        `https://rentcore-backend.onrender.com/api/admin/requests?${q.toString()}`,
         {
           credentials: "include",
         }
@@ -142,8 +142,8 @@ export default function AdminRequestsPage() {
   const approveRequest = async (req: AdminRequest) => {
     const url =
       req.type === "RENTAL"
-        ? `/api/rental-requests/${req.id}/approve`
-        : `/api/facility-reservations/${req.id}/approve`; 
+        ? `https://rentcore-backend.onrender.com/api/rental-requests/${req.id}/approve`
+        : `https://rentcore-backend.onrender.com/api/facility-reservations/${req.id}/approve`; 
 
     await fetch(url, {
       method: "PATCH",
@@ -161,8 +161,8 @@ export default function AdminRequestsPage() {
   const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
     const url =
       req.type === "RENTAL"
-        ? `/api/rental-requests/${req.id}/reject`
-        : `/api/facility-reservations/${req.id}/reject`; 
+        ? `https://rentcore-backend.onrender.com/api/rental-requests/${req.id}/reject`
+        : `https://rentcore-backend.onrender.com/api/facility-reservations/${req.id}/reject`; 
 
     await fetch(url, {
       method: "PATCH",

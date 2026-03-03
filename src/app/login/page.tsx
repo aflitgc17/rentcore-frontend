@@ -36,7 +36,7 @@ export default function LoginPage() {
 
 async function onSubmit(values: z.infer<typeof formSchema>) {
   try {
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch("https://rentcore-backend.onrender.com/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

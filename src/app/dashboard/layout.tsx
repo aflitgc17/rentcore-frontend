@@ -93,35 +93,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  
-
-  // 알림 카운트
-  // useEffect(() => {
-  //   const fetchNotifications = async () => {
-  //     try {
-  //       const res = await fetch("/api/my/notifications", {
-  //         credentials: "include",
-  //       });
-  //       if (!res.ok) return;
-
-  //       const data = await res.json();
-  //       setUnreadCount(data.unreadCount);
-  //     } catch (err) {
-  //       console.error(err);
-  //     }
-  //   };
-
-  //   fetchNotifications();
-  //   const interval = setInterval(fetchNotifications, 10000);
-  //   return () => clearInterval(interval);
-  // }, []);
-
-  //  useEffect(() => {
-  //   const handleUpdate = () => setUnreadCount(0);
-  //   window.addEventListener("notificationsUpdated", handleUpdate);
-  //   return () => window.removeEventListener("notificationsUpdated", handleUpdate);
-  // }, []);
-
   // 내 정보
   useEffect(() => {
     const fetchMe = async () => {
@@ -130,7 +101,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error("unauthorized");
 
         const data: UserView = await res.json();
-        // console.log("🔥 /auth/me 응답:", data);
+        // console.log(" /auth/me 응답:", data);
         setUser(data);
       } catch (err) {
         // console.log("❌ 인증 실패:", err);
@@ -295,7 +266,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={async () => {
-                  await fetch("/api/auth/logout", {
+                  await fetch("https://rentcore-backend.onrender.com/api/auth/logout", {
                     method: "POST",
                     credentials: "include",
                   });

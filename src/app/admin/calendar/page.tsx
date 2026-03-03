@@ -195,8 +195,8 @@ export default function CalendarPage() {
     const loadBaseData = async () => {
       try {
         const [userRes, equipRes] = await Promise.all([
-          fetch("/api/users"),
-          fetch("/api/equipments"),
+          fetch("https://rentcore-backend.onrender.com/api/users"),
+          fetch("https://rentcore-backend.onrender.com/api/equipments"),
         ]);
 
         setUsers(await userRes.json());
@@ -233,7 +233,7 @@ export default function CalendarPage() {
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch("/api/reservations", {
+      const res = await fetch("https://rentcore-backend.onrender.com/api/reservations", {
         credentials: "include",
       });
 
@@ -305,7 +305,7 @@ export default function CalendarPage() {
           ).toISOString();
 
           const res = await fetch(
-            `/api/reservations/conflicts?start=${startStr}&end=${endStr}`
+            `https://rentcore-backend.onrender.com/api/reservations/conflicts?start=${startStr}&end=${endStr}`
           );
 
           const data = await res.json();
@@ -350,7 +350,7 @@ export default function CalendarPage() {
           ).toISOString();
 
           const res = await fetch(
-            `/api/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
+            `https://rentcore-backend.onrender.com/api/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
           );
 
           const data = await res.json();
@@ -420,7 +420,7 @@ export default function CalendarPage() {
 
     try {
       await fetch(
-        `/api/reservations/${clickedEvent.id}`,
+        `https://rentcore-backend.onrender.com/api/reservations/${clickedEvent.id}`,
         { method: "DELETE" }
       );
 
@@ -450,7 +450,7 @@ export default function CalendarPage() {
 
     try {
       const res: Response = await fetch(
-        `/api/reservations/${clickedEvent.id}`,
+        `https://rentcore-backend.onrender.com/api/reservations/${clickedEvent.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -502,7 +502,7 @@ export default function CalendarPage() {
   }
 
   try {
-    const res = await fetch("/api/reservations/manual", {
+    const res = await fetch("https://rentcore-backend.onrender.com/api/reservations/manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -958,13 +958,7 @@ export default function CalendarPage() {
 
                   setStartTime(format(clickedEvent.extendedProps!.rawFrom!, "HH:mm"));
                   setEndTime(format(clickedEvent.extendedProps!.rawTo!, "HH:mm"));
-                
-                
-
-                // 장비 목록 먼저 불러오기
-                // const res = await fetch("/api/equipments");
-                // const data = await res.json();
-                // setEquipments(data);
+            
 
                   setEditRange({
                     from: clickedEvent.extendedProps?.rawFrom ?? undefined,
@@ -1148,7 +1142,7 @@ export default function CalendarPage() {
 
                 try {
                   await fetch(
-                    `/api/reservations/${clickedEvent.id}`,
+                    `https://rentcore-backend.onrender.com/api/reservations/${clickedEvent.id}`,
                     { method: "DELETE" }
                   );
 
