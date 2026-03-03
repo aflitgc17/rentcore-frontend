@@ -115,7 +115,7 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
-
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 export default function SignupPage() {
   const router = useRouter();
@@ -141,7 +141,7 @@ export default function SignupPage() {
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-        const res = await fetch("https://rentcore-backend.onrender.com/auth/register", {
+        const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

@@ -21,6 +21,8 @@ const formSchema = z.object({
   password: z.string().min(1, { message: "비밀번호를 입력해주세요." }),
 });
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export default function LoginPage() { 
   const router = useRouter();
   const { toast } = useToast();
@@ -36,7 +38,7 @@ export default function LoginPage() {
 
 async function onSubmit(values: z.infer<typeof formSchema>) {
   try {
-    const res = await fetch("https://rentcore-backend.onrender.com/auth/login", {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

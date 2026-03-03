@@ -43,6 +43,8 @@ type TeamMember = {
   department: string;
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export default function FacilityCalendarPage() {
   const { toast } = useToast();
   const { profile, loading } = useCurrentUser();
@@ -102,7 +104,7 @@ export default function FacilityCalendarPage() {
     const end = new Date(`${baseDate}T${endTime}`);
 
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/facility-reservations/manual", {
+      const res = await fetch(`${API_BASE}/facility-reservations/manual`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -149,7 +151,7 @@ export default function FacilityCalendarPage() {
 
   try {
     const res = await fetch(
-      `https://rentcore-backend.onrender.com/facility-reservations/${clickedReservation.id}`,
+      `${API_BASE}/facility-reservations/${clickedReservation.id}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -191,7 +193,7 @@ export default function FacilityCalendarPage() {
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/facility-reservations", {
+      const res = await fetch(`${API_BASE}/facility-reservations`, {
         credentials: "include",
       });
 
@@ -238,8 +240,8 @@ export default function FacilityCalendarPage() {
   useEffect(() => {
     const loadBaseData = async () => {
       const [userRes, facilityRes] = await Promise.all([
-        fetch("https://rentcore-backend.onrender.com/users"),
-        fetch("https://rentcore-backend.onrender.com/facilities"),
+        fetch(`${API_BASE}/users`),
+        fetch(`${API_BASE}/facilities`),
       ]);
 
       setUsers(await userRes.json());
@@ -785,7 +787,7 @@ export default function FacilityCalendarPage() {
                 if (!clickedReservation) return;
 
                 await fetch(
-                  `https://rentcore-backend.onrender.com/facility-reservations/${clickedReservation.id}`,
+                  `${API_BASE}/facility-reservations/${clickedReservation.id}`,
                   { method: "DELETE" }
                 );
 

@@ -85,6 +85,8 @@ const statusMap: Record<
   REJECTED: { text: "거절됨", variant: "destructive" },
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 
 export default function AdminRequestsPage() {
   // const [requests, setRequests] = useState<RentalRequest[]>([]);
@@ -115,7 +117,7 @@ export default function AdminRequestsPage() {
       if (type !== "ALL") q.set("type", type);
 
       const res = await fetch(
-        `https://rentcore-backend.onrender.com/admin/requests?${q.toString()}`,
+        `${API_BASE}/admin/requests?${q.toString()}`,
         {
           credentials: "include",
         }
@@ -142,8 +144,8 @@ export default function AdminRequestsPage() {
   const approveRequest = async (req: AdminRequest) => {
     const url =
       req.type === "RENTAL"
-        ? `https://rentcore-backend.onrender.com/rental-requests/${req.id}/approve`
-        : `https://rentcore-backend.onrender.com/facility-reservations/${req.id}/approve`; 
+        ? `${API_BASE}/rental-requests/${req.id}/approve`
+        : `${API_BASE}/facility-reservations/${req.id}/approve`; 
 
     await fetch(url, {
       method: "PATCH",
@@ -161,8 +163,8 @@ export default function AdminRequestsPage() {
   const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
     const url =
       req.type === "RENTAL"
-        ? `https://rentcore-backend.onrender.com/rental-requests/${req.id}/reject`
-        : `https://rentcore-backend.onrender.com/facility-reservations/${req.id}/reject`; 
+        ? `${API_BASE}/rental-requests/${req.id}/reject`
+        : `${API_BASE}/facility-reservations/${req.id}/reject`; 
 
     await fetch(url, {
       method: "PATCH",

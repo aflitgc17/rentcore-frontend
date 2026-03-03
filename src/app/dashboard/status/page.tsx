@@ -31,6 +31,7 @@ function maskName(name?: string | null) {
   const first = name[0] ?? "";
   return first + "＊".repeat(Math.max(1, name.length - 1));
 }
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 export default function FacilityCalendarLikeScreenshot() {
   const [facility, setFacility] = useState<"전체" | "편집실" | "녹음실">("전체");
@@ -46,7 +47,7 @@ export default function FacilityCalendarLikeScreenshot() {
       const params =
         facility === "전체" ? "" : `?facility=${encodeURIComponent(facility)}`;
 
-      const res = await fetch(`https://rentcore-backend.onrender.com/facility-reservations${params}`, {
+      const res = await fetch(`${API_BASE}/facility-reservations${params}`, {
         credentials: "include",
       });
 

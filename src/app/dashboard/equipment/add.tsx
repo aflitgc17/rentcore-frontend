@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/simple-toast";
 
 const { toast } = useToast();
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 export default function AddEquipmentPage() {
   const [name, setName] = useState("");
@@ -27,7 +28,7 @@ export default function AddEquipmentPage() {
       const imageUrl = await uploadToCloudinary(file);
 
       const id = uuidv4(); // 장비 ID
-      await fetch("https://rentcore-backend.onrender.com/equipments", {
+      await fetch(`${API_BASE}/equipments`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

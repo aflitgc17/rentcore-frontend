@@ -96,6 +96,8 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export default function AdminSignupPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -119,7 +121,7 @@ export default function AdminSignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
   setLoading(true);
   try {
-    const res = await fetch("https://rentcore-backend.onrender.com/admin/signup", {
+    const res = await fetch(`${API_BASE}/admin/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

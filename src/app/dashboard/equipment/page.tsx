@@ -161,6 +161,8 @@ const EquipmentTable = ({
   </div>
 );
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 // ===== 페이지 컴포넌트 =====
 export default function EquipmentPage() {
   const [viewTarget, setViewTarget] = useState<Equipment | null>(null);
@@ -176,7 +178,7 @@ export default function EquipmentPage() {
 
     useEffect(() => {
       const fetchEquipments = async () => {
-        const res = await fetch("https://rentcore-backend.onrender.com/equipments");
+        const res = await fetch(`${API_BASE}/equipments`);
         if (!res.ok) return;
 
         const data = await res.json();
@@ -250,7 +252,7 @@ export default function EquipmentPage() {
 
       const fetchReservations = async () => {
         const res = await fetch(
-          `https://rentcore-backend.onrender.com/equipments/${viewTarget.id}/reservations`
+          `${API_BASE}/equipments/${viewTarget.id}/reservations`
         );
         if (!res.ok) return;
 

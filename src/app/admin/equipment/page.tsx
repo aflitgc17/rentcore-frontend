@@ -30,6 +30,8 @@ import { Calendar } from "@/components/ui/calendar";
 
 import { useToast } from "@/components/ui/simple-toast";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 // ------------------ 상수 & 타입 ------------------
 const CATEGORY_OPTIONS = [
   "카메라", "삼각대", "렌즈", "필터", "마이크",
@@ -159,7 +161,7 @@ export default function AdminEquipmentPage() {
     requestAnimationFrame(() => {
       (async () => {
         try {
-          const res = await fetch(`https://rentcore-backend.onrender.com/equipments/${item.id}/reservations`);
+          const res = await fetch(`${API_BASE}/equipments/${item.id}/reservations`);
           if (!res.ok) return;
 
           const data = await res.json();
@@ -180,7 +182,7 @@ export default function AdminEquipmentPage() {
 
   const fetchEquipments = async () => {
   try {
-    const res = await fetch("https://rentcore-backend.onrender.com/equipments");
+    const res = await fetch(`${API_BASE}/equipments`);
     const data = await res.json();
 
     const reverseStatusMap: Record<string, EquipmentStatus> = {
@@ -238,7 +240,7 @@ export default function AdminEquipmentPage() {
     if (!confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      const res = await fetch(`https://rentcore-backend.onrender.com/equipments/${id}`, {
+      const res = await fetch(`${API_BASE}/equipments/${id}`, {
         method: "DELETE",
       });
 
@@ -263,7 +265,7 @@ export default function AdminEquipmentPage() {
 
     try {
       const res = await fetch(
-        `https://rentcore-backend.onrender.com/equipments/${currentEquipment.id}`,
+        `${API_BASE}/equipments/${currentEquipment.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -308,7 +310,7 @@ export default function AdminEquipmentPage() {
 }));
 
 
-  const res = await fetch("https://rentcore-backend.onrender.com/equipments/bulk", {
+  const res = await fetch(`${API_BASE}/equipments/bulk`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Camera, History, Presentation, CalendarCheck } from "lucide-react";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export default function DashboardPage() {
   type User = {
   id: number;
@@ -23,7 +25,7 @@ const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
   const fetchMe = async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/auth/me", {
+      const res = await fetch(`${API_BASE}/auth/me`, {
         credentials: "include", 
       });
 

@@ -119,6 +119,7 @@ type FCEvent = {
 // const timeOptions = Array.from({ length: 10 }, (_, i) =>
 //     `${String(i + 9).padStart(2, "0")}:00`
 //   );
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 const timeOptions = Array.from({ length: 24 }, (_, h) =>
   `${String(h).padStart(2, "0")}:00`
@@ -195,8 +196,8 @@ export default function CalendarPage() {
     const loadBaseData = async () => {
       try {
         const [userRes, equipRes] = await Promise.all([
-          fetch("https://rentcore-backend.onrender.com/users"),
-          fetch("https://rentcore-backend.onrender.com/equipments"),
+          fetch(`${API_BASE}/users`),
+          fetch(`${API_BASE}/equipments`),
         ]);
 
         setUsers(await userRes.json());
@@ -233,7 +234,7 @@ export default function CalendarPage() {
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/reservations", {
+      const res = await fetch(`${API_BASE}/reservations`, {
         credentials: "include",
       });
 
@@ -305,7 +306,7 @@ export default function CalendarPage() {
           ).toISOString();
 
           const res = await fetch(
-            `https://rentcore-backend.onrender.com/reservations/conflicts?start=${startStr}&end=${endStr}`
+            `${API_BASE}/reservations/conflicts?start=${startStr}&end=${endStr}`
           );
 
           const data = await res.json();
@@ -350,7 +351,7 @@ export default function CalendarPage() {
           ).toISOString();
 
           const res = await fetch(
-            `https://rentcore-backend.onrender.com/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
+            `${API_BASE}/reservations/conflicts?start=${startStr}&end=${endStr}&excludeId=${clickedEvent?.id}`
           );
 
           const data = await res.json();
@@ -420,7 +421,7 @@ export default function CalendarPage() {
 
     try {
       await fetch(
-        `https://rentcore-backend.onrender.com/reservations/${clickedEvent.id}`,
+        `${API_BASE}/reservations/${clickedEvent.id}`,
         { method: "DELETE" }
       );
 
@@ -450,7 +451,7 @@ export default function CalendarPage() {
 
     try {
       const res: Response = await fetch(
-        `https://rentcore-backend.onrender.com/reservations/${clickedEvent.id}`,
+        `${API_BASE}/reservations/${clickedEvent.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -502,7 +503,7 @@ export default function CalendarPage() {
   }
 
   try {
-    const res = await fetch("https://rentcore-backend.onrender.com/reservations/manual", {
+    const res = await fetch(`${API_BASE}/reservations/manual`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1142,7 +1143,7 @@ export default function CalendarPage() {
 
                 try {
                   await fetch(
-                    `https://rentcore-backend.onrender.com/reservations/${clickedEvent.id}`,
+                    `${API_BASE}/reservations/${clickedEvent.id}`,
                     { method: "DELETE" }
                   );
 

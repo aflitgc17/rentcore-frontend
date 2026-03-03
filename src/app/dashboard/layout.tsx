@@ -269,7 +269,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={async () => {
-                  await fetch("https://rentcore-backend.onrender.com/auth/logout", {
+                  await fetch(`${API_BASE}/auth/logout`, {
                     method: "POST",
                     credentials: "include",
                   });

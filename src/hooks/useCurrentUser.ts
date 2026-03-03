@@ -7,6 +7,8 @@ type User = {
   role: "USER" | "ADMIN";
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export function useCurrentUser() {
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,7 +16,7 @@ export function useCurrentUser() {
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await fetch("https://rentcore-backend.onrender.com/auth/me", {
+        const res = await fetch(`${API_BASE}/auth/me`, {
           credentials: "include",
         });
 
