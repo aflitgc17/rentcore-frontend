@@ -56,14 +56,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 //   </Badge>
 // )}
 
+
+
 useEffect(() => {
   const fetchPendingCount = async () => {
     try {
+      
       const [rentalRes, facilityRes] = await Promise.all([
-        fetch("http://localhost:4000/admin/rental-requests/count", {
+    
+        fetch("${API_BASE}/admin/rental-requests/count", {
           credentials: "include",
         }),
-        fetch("http://localhost:4000/admin/facility-requests/count", {
+        fetch("${API_BASE}/admin/facility-requests/count", {
           credentials: "include",
         }),
       ]);

@@ -243,9 +243,10 @@ export default function MyStatusPage() {
     try {
       // res-3 → 3 추출
       const realId = reservationId.split("-")[1];
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
       const res = await fetch(
-        `http://localhost:4000/reservations/${realId}/print`,
+        `http://${API_BASE}/reservations/${realId}/print`,
         {
           credentials: "include",
         }
@@ -272,8 +273,10 @@ export default function MyStatusPage() {
 
   const handleFacilityDownload = async (reservationId: string) => {
     try {
+
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
       const res = await fetch(
-        `http://localhost:4000/facility-reservations/${reservationId}/print`,
+        `http://${API_BASE}/facility-reservations/${reservationId}/print`,
         {
           credentials: "include",
         }

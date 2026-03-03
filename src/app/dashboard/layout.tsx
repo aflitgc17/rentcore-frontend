@@ -65,10 +65,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const [notificationCount, setNotificationCount] = useState(0);
 
+  
+
   useEffect(() => {
     const fetchCount = async () => {
       const res = await fetch(
-        "http://localhost:4000/notifications/unread-count",
+        "${API_BASE}/notifications/unread-count",
         { credentials: "include" }
       );
 
@@ -97,7 +99,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await fetch("http://localhost:4000/auth/me", { credentials: "include" });
+        const res = await fetch("http://${API_BASE}/auth/me", { credentials: "include" });
         if (!res.ok) throw new Error("unauthorized");
 
         const data: UserView = await res.json();
