@@ -159,7 +159,7 @@ export default function AdminEquipmentPage() {
     requestAnimationFrame(() => {
       (async () => {
         try {
-          const res = await fetch(`https://rentcore-backend.onrender.com/api/equipments/${item.id}/reservations`);
+          const res = await fetch(`https://rentcore-backend.onrender.com/equipments/${item.id}/reservations`);
           if (!res.ok) return;
 
           const data = await res.json();
@@ -180,7 +180,7 @@ export default function AdminEquipmentPage() {
 
   const fetchEquipments = async () => {
   try {
-    const res = await fetch("https://rentcore-backend.onrender.com/api/equipments");
+    const res = await fetch("https://rentcore-backend.onrender.com/equipments");
     const data = await res.json();
 
     const reverseStatusMap: Record<string, EquipmentStatus> = {
@@ -238,7 +238,7 @@ export default function AdminEquipmentPage() {
     if (!confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      const res = await fetch(`https://rentcore-backend.onrender.com/api/equipments/${id}`, {
+      const res = await fetch(`https://rentcore-backend.onrender.com/equipments/${id}`, {
         method: "DELETE",
       });
 
@@ -263,7 +263,7 @@ export default function AdminEquipmentPage() {
 
     try {
       const res = await fetch(
-        `https://rentcore-backend.onrender.com/api/equipments/${currentEquipment.id}`,
+        `https://rentcore-backend.onrender.com/equipments/${currentEquipment.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -308,7 +308,7 @@ export default function AdminEquipmentPage() {
 }));
 
 
-  const res = await fetch("https://rentcore-backend.onrender.com/api/equipments/bulk", {
+  const res = await fetch("https://rentcore-backend.onrender.com/equipments/bulk", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

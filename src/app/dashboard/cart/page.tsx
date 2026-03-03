@@ -129,7 +129,7 @@ export default function CartPage() {
 
 
   useEffect(() => {
-    fetch("https://rentcore-backend.onrender.com/api/equipments")
+    fetch("https://rentcore-backend.onrender.com/equipments")
       .then((res) => res.json())
       .then((data) => {
         const mapped = data.map((item: any) => ({
@@ -258,7 +258,7 @@ export default function CartPage() {
 
       const equipmentIds = cartItems.map((it) => it.id);
 
-      const res = await fetch("https://rentcore-backend.onrender.com/api/rental-requests/conflicts", {
+      const res = await fetch("https://rentcore-backend.onrender.com/rental-requests/conflicts", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -328,7 +328,7 @@ export default function CartPage() {
       // 기간 겹침 검사
       const equipmentIds = cartItems.map((it) => it.id);
       const res = await fetch(
-        "https://rentcore-backend.onrender.com/api/rental-requests/conflicts",
+        "https://rentcore-backend.onrender.com/rental-requests/conflicts",
         {
             method: "POST",
             credentials: "include",
@@ -359,7 +359,7 @@ export default function CartPage() {
         return;
       }
 
-    await fetch("https://rentcore-backend.onrender.com/api/rental-requests", {
+    await fetch("https://rentcore-backend.onrender.com/rental-requests", {
         method: "POST",
         credentials: "include",
         headers: {

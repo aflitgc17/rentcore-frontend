@@ -225,7 +225,7 @@ export default function MyStatusPage() {
 
   useEffect(() => {
     const markAsRead = async () => {
-      await fetch("https://rentcore-backend.onrender.com/api/my/notifications/read", {
+      await fetch("https://rentcore-backend.onrender.com/my/notifications/read", {
         method: "PATCH",
         headers: {
           credentials: "include",
@@ -303,7 +303,7 @@ export default function MyStatusPage() {
   // 추가: fetch 함수 분리
   const fetchMyStatus = useCallback(async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/api/my/status", {
+      const res = await fetch("https://rentcore-backend.onrender.com/my/status", {
         credentials: "include",
         cache: "no-store", 
       });

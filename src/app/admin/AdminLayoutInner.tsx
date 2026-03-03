@@ -90,7 +90,7 @@ useEffect(() => {
 
 useEffect(() => {
   async function checkAdmin() {
-    const res = await fetch("https://rentcore-backend.onrender.com/api/auth/me", {
+    const res = await fetch("https://rentcore-backend.onrender.com/auth/me", {
       credentials: "include",
     });
 
@@ -260,7 +260,7 @@ useEffect(() => {
               <SidebarMenuButton
                 tooltip="로그아웃"
                 onClick={async () => {
-                  await fetch("https://rentcore-backend.onrender.com/api/auth/logout", {
+                  await fetch("https://rentcore-backend.onrender.com/auth/logout", {
                     method: "POST",
                     credentials: "include",
                   });

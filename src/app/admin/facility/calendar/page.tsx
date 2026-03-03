@@ -102,7 +102,7 @@ export default function FacilityCalendarPage() {
     const end = new Date(`${baseDate}T${endTime}`);
 
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/api/facility-reservations/manual", {
+      const res = await fetch("https://rentcore-backend.onrender.com/facility-reservations/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -149,7 +149,7 @@ export default function FacilityCalendarPage() {
 
   try {
     const res = await fetch(
-      `https://rentcore-backend.onrender.com/api/facility-reservations/${clickedReservation.id}`,
+      `https://rentcore-backend.onrender.com/facility-reservations/${clickedReservation.id}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -191,7 +191,7 @@ export default function FacilityCalendarPage() {
 
   const fetchCalendar = async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/api/facility-reservations", {
+      const res = await fetch("https://rentcore-backend.onrender.com/facility-reservations", {
         credentials: "include",
       });
 
@@ -238,8 +238,8 @@ export default function FacilityCalendarPage() {
   useEffect(() => {
     const loadBaseData = async () => {
       const [userRes, facilityRes] = await Promise.all([
-        fetch("https://rentcore-backend.onrender.com/api/users"),
-        fetch("https://rentcore-backend.onrender.com/api/facilities"),
+        fetch("https://rentcore-backend.onrender.com/users"),
+        fetch("https://rentcore-backend.onrender.com/facilities"),
       ]);
 
       setUsers(await userRes.json());
@@ -785,7 +785,7 @@ export default function FacilityCalendarPage() {
                 if (!clickedReservation) return;
 
                 await fetch(
-                  `https://rentcore-backend.onrender.com/api/facility-reservations/${clickedReservation.id}`,
+                  `https://rentcore-backend.onrender.com/facility-reservations/${clickedReservation.id}`,
                   { method: "DELETE" }
                 );
 

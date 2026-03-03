@@ -23,7 +23,7 @@ const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
   const fetchMe = async () => {
     try {
-      const res = await fetch("https://rentcore-backend.onrender.com/api/auth/me", {
+      const res = await fetch("https://rentcore-backend.onrender.com/auth/me", {
         credentials: "include", 
       });
 
