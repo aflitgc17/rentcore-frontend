@@ -85,7 +85,7 @@ const initialFormState = {
   team: [] as TeamMember[],
 };
 
-const API_BASE = "/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 function useCurrentUser() {
   const [profile, setProfile] = useState<UserProfile>(null);
