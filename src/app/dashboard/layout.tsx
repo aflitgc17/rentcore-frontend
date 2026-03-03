@@ -50,6 +50,7 @@ type UserView = {
   role: "USER" | "ADMIN";
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserView | null>(null);
@@ -70,7 +71,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchCount = async () => {
       const res = await fetch(
-        "${API_BASE}/notifications/unread-count",
+        `${API_BASE}/notifications/unread-count`,
         { credentials: "include" }
       );
 

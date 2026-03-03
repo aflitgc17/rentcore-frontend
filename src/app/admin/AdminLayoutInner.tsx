@@ -41,6 +41,8 @@ type AdminUserView = {
   avatar: string | null;
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUserView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,10 +66,10 @@ useEffect(() => {
       
       const [rentalRes, facilityRes] = await Promise.all([
     
-        fetch("${API_BASE}/admin/rental-requests/count", {
+        fetch(`${API_BASE}/admin/rental-requests/count`, {
           credentials: "include",
         }),
-        fetch("${API_BASE}/admin/facility-requests/count", {
+        fetch(`${API_BASE}/admin/facility-requests/count`, {
           credentials: "include",
         }),
       ]);
