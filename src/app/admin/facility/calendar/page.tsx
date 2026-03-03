@@ -106,6 +106,7 @@ export default function FacilityCalendarPage() {
     try {
       const res = await fetch(`${API_BASE}/facility-reservations/manual`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: Number(selectedUser),
@@ -240,8 +241,12 @@ export default function FacilityCalendarPage() {
   useEffect(() => {
     const loadBaseData = async () => {
       const [userRes, facilityRes] = await Promise.all([
-        fetch(`${API_BASE}/users`),
-        fetch(`${API_BASE}/facilities`),
+        fetch(`${API_BASE}/users`, {
+          credentials: "include",
+        }),
+        fetch(`${API_BASE}/facilities`, {
+          credentials: "include",
+        }),
       ]);
 
       setUsers(await userRes.json());
@@ -788,7 +793,10 @@ export default function FacilityCalendarPage() {
 
                 await fetch(
                   `${API_BASE}/facility-reservations/${clickedReservation.id}`,
-                  { method: "DELETE" }
+                  {
+                    method: "DELETE",
+                    credentials: "include",
+                  }
                 );
 
                 toast({ title: "삭제 완료" });
