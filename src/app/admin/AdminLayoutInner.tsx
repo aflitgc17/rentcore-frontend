@@ -54,44 +54,80 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
  const { pendingCount, setPendingCount } = usePendingRequest();
 
 
+// useEffect(() => {
+//   const fetchPendingCount = async () => {
+//     try {
+//       const [rentalRes, facilityRes] = await Promise.all([
+//         fetch(`${API_BASE}/admin/rental-requests/count`, {
+//           credentials: "include",
+//         }),
+//         fetch(`${API_BASE}/admin/facility-requests/count`, {
+//           credentials: "include",
+//         }),
+//       ]);
+
+//       if (!rentalRes.ok || !facilityRes.ok) return;
+
+//       const rentalData = await rentalRes.json();
+//       const facilityData = await facilityRes.json();
+
+//       const total =
+//         (rentalData.count ?? 0) +
+//         (facilityData.count ?? 0);
+
+//       setPendingCount(total);
+
+//     } catch (e) {
+//       console.error("pending count 불러오기 실패", e);
+//     }
+//   };
+
+//   fetchPendingCount();
+// }, [setPendingCount]);
+
+
+// useEffect(() => {
+//   async function checkAdmin() {
+//     try {
+//       const res = await fetch(`${API_BASE}/auth/me`, {
+//         credentials: "include",
+//       });
+
+//       if (!res.ok) {
+//         router.replace("/login");
+//         return;
+//       }
+
+//       const data = await res.json();
+
+//       if (data.role !== "ADMIN") {
+//         router.replace("/dashboard");
+//         return;
+//       }
+
+//       setUser({
+//         name: data.name,
+//         email: data.email,
+//         avatar: null,
+//       });
+
+//       setLoading(false);
+
+//     } catch (err) {
+//       console.error("auth/me 요청 실패", err);
+//       router.replace("/login");
+//     }
+//   }
+
+//   checkAdmin();
+// }, [router]);
+
+
 useEffect(() => {
-  const fetchPendingCount = async () => {
+  async function loadLayoutData() {
     try {
-      
-      const [rentalRes, facilityRes] = await Promise.all([
-    
-        fetch(`${API_BASE}/admin/rental-requests/count`, {
-          credentials: "include",
-        }),
-        fetch(`${API_BASE}/admin/facility-requests/count`, {
-          credentials: "include",
-        }),
-      ]);
 
-      if (!rentalRes.ok || !facilityRes.ok) return;
-
-      const rentalData = await rentalRes.json();
-      const facilityData = await facilityRes.json();
-
-      const total =
-        (rentalData.count ?? 0) +
-        (facilityData.count ?? 0);
-
-      setPendingCount(total);
-
-    } catch (e) {
-      console.error("pending count 불러오기 실패", e);
-    }
-  };
-
-  fetchPendingCount();
-}, [setPendingCount]);
-
-
-useEffect(() => {
-  async function checkAdmin() {
-    try {
-      const res = await fetch(`${API_BASE}/auth/me`, {
+      const res = await fetch(`${API_BASE}/admin/layout-data`, {
         credentials: "include",
       });
 
@@ -102,27 +138,30 @@ useEffect(() => {
 
       const data = await res.json();
 
-      if (data.role !== "ADMIN") {
+      if (data.user.role !== "ADMIN") {
         router.replace("/dashboard");
         return;
       }
 
       setUser({
-        name: data.name,
-        email: data.email,
+        name: data.user.name,
+        email: data.user.email,
         avatar: null,
       });
+
+      setPendingCount(data.pendingCount);
 
       setLoading(false);
 
     } catch (err) {
-      console.error("auth/me 요청 실패", err);
+      console.error("layout data 실패", err);
       router.replace("/login");
     }
   }
 
-  checkAdmin();
-}, [router]);
+  loadLayoutData();
+
+}, [router, setPendingCount]);
 
 
   if (loading) {
