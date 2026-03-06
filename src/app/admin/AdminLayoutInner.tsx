@@ -90,29 +90,35 @@ useEffect(() => {
 
 useEffect(() => {
   async function checkAdmin() {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      credentials: "include",
-    });
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        credentials: "include",
+      });
 
-    if (!res.ok) {
+      if (!res.ok) {
+        router.replace("/login");
+        return;
+      }
+
+      const data = await res.json();
+
+      if (data.role !== "ADMIN") {
+        router.replace("/dashboard");
+        return;
+      }
+
+      setUser({
+        name: data.name,
+        email: data.email,
+        avatar: null,
+      });
+
+      setLoading(false);
+
+    } catch (err) {
+      console.error("auth/me 요청 실패", err);
       router.replace("/login");
-      return;
     }
-
-    const data = await res.json();
-
-    if (data.role !== "ADMIN") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    setUser({
-      name: data.name,
-      email: data.email,
-      avatar: null,
-    });
-
-    setLoading(false);
   }
 
   checkAdmin();
