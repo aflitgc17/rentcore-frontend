@@ -326,7 +326,7 @@ export default function AdminEquipmentPage() {
   toast({ title: "엑셀 업로드 완료" });
 
 
-  fetchEquipments(); 
+  await fetchEquipments();
 
   setExcelFile(null);
 };
