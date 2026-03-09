@@ -41,27 +41,7 @@ const {
 } = form;
 
 async function onSubmit(values: z.infer<typeof formSchema>) {
-
-  const toastId = toast({
-    title: "로그인 중...",
-    description: "잠시만 기다려주세요.",
-  });
-
   try {
-    // const res = await fetch(`${API_BASE}/auth/login`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   credentials: "include",
-    //   body: JSON.stringify(values),
-    // });
-
-    // if (!res.ok) {
-    //   throw new Error("로그인 실패");
-    // }
-
-    // const data: { role: "ADMIN" | "USER" } = await res.json();
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: {
@@ -74,11 +54,8 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
     const data = await res.json();
 
     if (!res.ok) {
-      toast.dismiss();
       throw new Error(data.message || "로그인 실패");
     }
-
-    // toast.dismiss();
 
     if (data.role === "ADMIN") {
       router.replace("/admin");
@@ -87,8 +64,6 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
     }
 
   } catch (error:any) {
-    toast.dismiss();
-
     toast({
       title: "로그인 실패",
       description: error.message,
