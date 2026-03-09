@@ -960,8 +960,13 @@ export default function CalendarPage() {
                 onClick={async () => {
                   if (!clickedEvent) return;
 
-                  setStartTime(format(clickedEvent.extendedProps!.rawFrom!, "HH:mm"));
-                  setEndTime(format(clickedEvent.extendedProps!.rawTo!, "HH:mm"));
+                  setStartTime(
+                    format(new Date(clickedEvent.extendedProps!.rawFrom!), "HH:mm")
+                  );
+
+                  setEndTime(
+                    format(new Date(clickedEvent.extendedProps!.rawTo!), "HH:mm")
+                  );
             
 
                   setEditRange({
