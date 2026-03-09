@@ -840,8 +840,8 @@ export default function CalendarPage() {
                         studentId: r.user?.studentId,
                         subjectName: r.subjectName,
                         purpose: r.purpose,
-                        rawFrom: new Date(r.startDate),
-                        rawTo: new Date(r.endDate),
+                        rawFrom: new Date(r.startDate + "Z"),
+                        rawTo: new Date(r.endDate + "Z"),
                         managementNumber: r.items
                           ?.map(i => i.equipment?.managementNumber)
                           .filter(Boolean)
