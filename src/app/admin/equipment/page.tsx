@@ -110,7 +110,7 @@ const compareManagementNumber = (a: string, b: string) => {
 export default function AdminEquipmentPage() {
   const { toast } = useToast();
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
-  const [filteredList, setFilteredList] = useState<Equipment[]>([]);
+  // const [filteredList, setFilteredList] = useState<Equipment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all"); 
@@ -184,7 +184,9 @@ export default function AdminEquipmentPage() {
 
   const fetchEquipments = async () => {
   try {
-    const res = await fetch(`${API_BASE}/equipments`);
+    const res = await fetch(`${API_BASE}/equipments`, {
+      cache: "no-store",
+    });
     const data = await res.json();
 
     const reverseStatusMap: Record<string, EquipmentStatus> = {
@@ -219,24 +221,21 @@ export default function AdminEquipmentPage() {
 
 
   // ------------------ 검색 ------------------
-  useEffect(() => {
+  const filteredList = useMemo(() => {
     const term = searchTerm.toLowerCase();
 
-    setFilteredList(
-      equipmentList.filter((i) => {
-        const matchesSearch =
-          i.name.toLowerCase().includes(term) ||
-          i.managementNumber.toLowerCase().includes(term);
+    return equipmentList.filter((i) => {
+      const matchesSearch =
+        i.name.toLowerCase().includes(term) ||
+        i.managementNumber.toLowerCase().includes(term);
 
-        const matchesCategory =
-          selectedCategory === "all" ||  
-          i.category === selectedCategory; 
+      const matchesCategory =
+        selectedCategory === "all" ||
+        i.category === selectedCategory;
 
-        return matchesSearch && matchesCategory; 
-      })
-    );
-  }, [searchTerm, equipmentList, selectedCategory]); 
-
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchTerm, equipmentList, selectedCategory]);
   // ------------------ 삭제 ------------------
   const handleDelete = async (id: string) => { 
     if (!confirm("정말 삭제하시겠습니까?")) return;
@@ -339,7 +338,7 @@ export default function AdminEquipmentPage() {
     });
 
     await fetchEquipments();
-    
+
     setExcelFile(null);
 
   } catch (err) {
