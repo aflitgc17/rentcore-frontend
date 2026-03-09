@@ -168,10 +168,15 @@ export default function AdminEquipmentPage() {
 
           const data = await res.json();
           setReservations(
-            data.map((r: any) => ({
-              from: new Date(r.startDate + "T00:00:00"),
-              to: new Date(r.endDate + "T00:00:00"),
-            }))
+            data.map((r: any) => {
+              const start = r.startDate.split("T")[0];
+              const end = r.endDate.split("T")[0];
+
+              return {
+                from: new Date(start),
+                to: new Date(end),
+              };
+            })
           );
         } catch (e) {
           console.error("예약 조회 실패", e);
