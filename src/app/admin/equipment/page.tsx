@@ -134,6 +134,8 @@ export default function AdminEquipmentPage() {
 
   const [reservationLoading, setReservationLoading] = useState(false);
 
+  const [uploading, setUploading] = useState(false);
+
   
 
   
@@ -284,8 +286,12 @@ export default function AdminEquipmentPage() {
   };
 
   // ------------------ 엑셀 업로드 ------------------
+
   const handleExcelUpload = async () => {
+    
   if (!excelFile) return;
+
+  setUploading(true);
 
   try {
 
@@ -322,16 +328,18 @@ export default function AdminEquipmentPage() {
     });
 
     if (!res.ok) {
-      throw new Error("업로드 실패");
+      toast({ title: "업로드 실패", variant: "destructive" });
+      setUploading(false);
+      return;
     }
 
     toast({
       title: "엑셀 업로드 완료",
-      description: `${mappedData.length}개 장비 추가`,
+      description: `${mappedData.length}개의 장비가 추가되었습니다.`,
     });
 
     await fetchEquipments();
-
+    
     setExcelFile(null);
 
   } catch (err) {
@@ -361,10 +369,10 @@ export default function AdminEquipmentPage() {
 
           <Button
             variant="outline"
-            disabled={!excelFile}
+            disabled={!excelFile || uploading}
             onClick={handleExcelUpload}
           >
-            파일 업로드
+            {uploading ? "업로드 중..." : "파일 업로드"}
           </Button>
 
         </div>
