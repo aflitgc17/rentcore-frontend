@@ -48,6 +48,20 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
   });
 
   try {
+    // const res = await fetch(`${API_BASE}/auth/login`, {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   credentials: "include",
+    //   body: JSON.stringify(values),
+    // });
+
+    // if (!res.ok) {
+    //   throw new Error("로그인 실패");
+    // }
+
+    // const data: { role: "ADMIN" | "USER" } = await res.json();
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: {
@@ -57,29 +71,27 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
       body: JSON.stringify(values),
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      throw new Error("로그인 실패");
+      toast.dismiss();
+      throw new Error(data.message || "로그인 실패");
     }
 
-    const data: { role: "ADMIN" | "USER" } = await res.json();
+    toast.dismiss();
 
-    // toast.dismiss();
-    // toast({
-    //   title: "로그인 성공",
-    //   description: "이동합니다.",
-    // });
-
-    // toast.dismiss();
     if (data.role === "ADMIN") {
       router.replace("/admin");
     } else {
       router.replace("/dashboard");
     }
 
-  } catch (error) {
+  } catch (error:any) {
+    toast.dismiss();
+
     toast({
       title: "로그인 실패",
-      description: "이메일 또는 비밀번호를 확인해주세요.",
+      description: error.message,
       variant: "destructive",
     });
   }
