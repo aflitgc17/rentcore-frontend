@@ -125,7 +125,9 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">로그인</Button>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "로그인 중..." : "로그인"}
+              </Button>
             </form>
           </Form>
         </CardContent>
