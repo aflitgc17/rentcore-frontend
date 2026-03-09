@@ -110,8 +110,8 @@ type FCEvent = {
     equipmentId?: string;
     managementNumber?: string;
     docId?: string;
-    rawFrom?: Date;
-    rawTo?: Date;
+    rawFrom?: string;
+    rawTo?: string;
     [key: string]: any;          
   };
 };
@@ -840,8 +840,8 @@ export default function CalendarPage() {
                         studentId: r.user?.studentId,
                         subjectName: r.subjectName,
                         purpose: r.purpose,
-                        rawFrom: new Date(r.startDate + "Z"),
-                        rawTo: new Date(r.endDate + "Z"),
+                        rawFrom: r.startDate,
+                        rawTo: r.endDate,
                         managementNumber: r.items
                           ?.map(i => i.equipment?.managementNumber)
                           .filter(Boolean)
@@ -911,11 +911,13 @@ export default function CalendarPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">대출 기간</p>
                   <p className="font-medium">
-                    {clickedEvent.extendedProps?.rawFrom &&
-                      format(clickedEvent.extendedProps.rawFrom, "yyyy/MM/dd HH:mm")}{" "}
+                    {clickedEvent.extendedProps?.rawFrom
+                      ?.replace("T", " ")
+                      ?.slice(0, 16)}{" "}
                     ~{" "}
-                    {clickedEvent.extendedProps?.rawTo &&
-                      format(clickedEvent.extendedProps.rawTo, "yyyy/MM/dd HH:mm")}
+                    {clickedEvent.extendedProps?.rawTo
+                      ?.replace("T", " ")
+                      ?.slice(0, 16)}
                   </p>
                 </div>
 
@@ -963,8 +965,12 @@ export default function CalendarPage() {
             
 
                   setEditRange({
-                    from: clickedEvent.extendedProps?.rawFrom ?? undefined,
-                    to: clickedEvent.extendedProps?.rawTo ?? undefined,
+                    from: clickedEvent.extendedProps?.rawFrom
+                      ? new Date(clickedEvent.extendedProps.rawFrom)
+                      : undefined,
+                    to: clickedEvent.extendedProps?.rawTo
+                      ? new Date(clickedEvent.extendedProps.rawTo)
+                      : undefined,
                   });
 
                   setEditEquipments(
