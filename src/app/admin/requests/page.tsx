@@ -101,6 +101,7 @@ export default function AdminRequestsPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const { toast } = useToast();
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
 
 
@@ -367,24 +368,25 @@ export default function AdminRequestsPage() {
                     {req.status === "REQUESTED" && (
                       <>
 
-                        <Button 
-                          size="sm" 
-                          onClick={() => 
-                          approveRequest(req)}
+                        <Button
+                          size="sm"
+                          disabled={processingId === req.id}
+                          onClick={() => approveRequest(req)}
                         >
-                          승인
+                          {processingId === req.id ? "처리중..." : "승인"}
                         </Button>
 
                         <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => {
-                            setRejectTarget(req);
-                            setRejectReason("");
-                          }}
-                        >
-                          거절
-                        </Button>
+                        size="sm"
+                        variant="destructive"
+                        disabled={processingId === req.id}
+                        onClick={() => {
+                          setRejectTarget(req);
+                          setRejectReason("");
+                        }}
+                      >
+                        {processingId === req.id ? "처리중..." : "거절"}
+                      </Button>
                       </>
                     )}
                   </TableCell>
@@ -415,7 +417,7 @@ export default function AdminRequestsPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={!rejectReason.trim()}
+              disabled={!rejectReason.trim() || processingId === rejectTarget?.id}
               onClick={async () => {
                 await rejectRequestWithReason(rejectTarget!, rejectReason);
                 setRejectTarget(null);
