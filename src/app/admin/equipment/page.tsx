@@ -287,48 +287,62 @@ export default function AdminEquipmentPage() {
   const handleExcelUpload = async () => {
   if (!excelFile) return;
 
-  const buffer = await excelFile.arrayBuffer();
-  const workbook = XLSX.read(buffer);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<any>(sheet, {
-    range: 2,
-    header: 1,  
-  });
+  try {
 
-  const cleanedRows = rows.filter((row) => row?.[0] && String(row[0]).includes("-"));
+    const buffer = await excelFile.arrayBuffer();
+    const workbook = XLSX.read(buffer);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-  const mappedData = cleanedRows.map((row) => ({
-  managementNumber: String(row?.[0] ?? "").trim().toUpperCase(),
-  assetNumber: row?.[1] ?? "",
-  category: row?.[2] ?? "",
-  classification: row?.[3] ?? "",
-  name: row?.[4] ?? "",
-  accessories: row?.[5] ?? "",
-  note: row?.[6] ?? "",
-  status: "AVAILABLE",   
-  // order: index,
-}));
+    const rows = XLSX.utils.sheet_to_json<any>(sheet, {
+      range: 2,
+      header: 1,
+    });
 
+    const cleanedRows = rows.filter(
+      (row) => row?.[0] && String(row[0]).includes("-")
+    );
 
-  const res = await fetch(`${API_BASE}/equipments/bulk`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(mappedData),
-  });
+    const mappedData = cleanedRows.map((row) => ({
+      managementNumber: String(row?.[0] ?? "").trim().toUpperCase(),
+      assetNumber: row?.[1] ?? "",
+      category: row?.[2] ?? "",
+      classification: row?.[3] ?? "",
+      name: row?.[4] ?? "",
+      accessories: row?.[5] ?? "",
+      note: row?.[6] ?? "",
+      status: "AVAILABLE",
+    }));
 
-  if (!res.ok) {
-    toast({ title: "업로드 실패", variant: "destructive" });
-    return;
+    const res = await fetch(`${API_BASE}/equipments/bulk`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(mappedData),
+    });
+
+    if (!res.ok) {
+      throw new Error("업로드 실패");
+    }
+
+    toast({
+      title: "엑셀 업로드 완료",
+      description: `${mappedData.length}개 장비 추가`,
+    });
+
+    await fetchEquipments();
+
+    setExcelFile(null);
+
+  } catch (err) {
+    console.error("엑셀 업로드 오류:", err);
+
+    toast({
+      title: "업로드 실패",
+      description: "콘솔을 확인하세요",
+      variant: "destructive",
+    });
   }
-
-  toast({ title: "엑셀 업로드 완료" });
-
-
-  await fetchEquipments();
-
-  setExcelFile(null);
 };
 
   // ------------------ UI ------------------
