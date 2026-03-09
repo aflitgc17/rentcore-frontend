@@ -145,6 +145,9 @@ export default function AdminRequestsPage() {
 
 
   const approveRequest = async (req: AdminRequest) => {
+
+    setProcessingId(req.id); 
+
     const url =
       req.type === "RENTAL"
         ? `${API_BASE}/rental-requests/${req.id}/approve`
@@ -157,6 +160,8 @@ export default function AdminRequestsPage() {
         "Content-Type": "application/json",
       },
     });
+
+    setProcessingId(null);
 
     if (!res.ok) {
       toast({
@@ -177,6 +182,9 @@ export default function AdminRequestsPage() {
   };
 
     const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
+
+      setProcessingId(req.id);
+
       const url =
         req.type === "RENTAL"
           ? `${API_BASE}/rental-requests/${req.id}/reject`
@@ -190,6 +198,8 @@ export default function AdminRequestsPage() {
         },
         body: JSON.stringify({ reason }),
       });
+
+      setProcessingId(null); 
 
       if (!res.ok) {
         toast({
