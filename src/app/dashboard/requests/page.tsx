@@ -129,9 +129,11 @@ function dayDiffInclusive(a?: Date | null, b?: Date | null): number | null {
 // ★ 한국식 날짜 표기 (월 일)
 function fmtKDate(d?: Date | null): string {
   if (!d) return "-";
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${m}/${day}`;
+  return d.toLocaleDateString("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+    timeZone: "Asia/Seoul"
+  });
 }
 
 // ★ 범위 표기: "M월 D일 ~ M월 D일"
