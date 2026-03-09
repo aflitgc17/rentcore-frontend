@@ -172,7 +172,7 @@ export default function AdminRequestsPage() {
     });
 
     setPendingCount(prev => Math.max(prev - 1, 0));
-    await fetchRequests(activeTab, typeFilter);
+    fetchRequests(activeTab, typeFilter);
   };
 
     const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
@@ -205,7 +205,7 @@ export default function AdminRequestsPage() {
       });
 
       setPendingCount(prev => Math.max(prev - 1, 0));
-      await fetchRequests(activeTab, typeFilter);
+      fetchRequests(activeTab, typeFilter);
     };
 
   return (
