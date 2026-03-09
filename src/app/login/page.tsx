@@ -41,6 +41,12 @@ const {
 } = form;
 
 async function onSubmit(values: z.infer<typeof formSchema>) {
+
+  const toastId = toast({
+    title: "로그인 중...",
+    description: "잠시만 기다려주세요.",
+  });
+
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
@@ -59,16 +65,14 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
 
     toast({
       title: "로그인 성공",
-      description: "대시보드로 이동합니다.",
+      description: "이동합니다.",
     });
 
-    setTimeout(() => {
-      if (data.role === "ADMIN") {
-        router.replace("/admin");
-      } else {
-        router.replace("/dashboard");
-      }
-    }, 300);
+    if (data.role === "ADMIN") {
+      router.replace("/admin");
+    } else {
+      router.replace("/dashboard");
+    }
 
   } catch (error) {
     toast({
