@@ -340,8 +340,8 @@ export default function MyStatusPage() {
           ? new Date(r.rentalRequest.createdAt)
           : (r.createdAt ? new Date(r.createdAt) : null),
 
-        startDate: r.startDate ? new Date(r.startDate + "T00:00:00") : null,
-        endDate: r.endDate ? new Date(r.endDate + "T00:00:00") : null,
+        startDate: r.startDate ? new Date(r.startDate) : null,
+        endDate: r.endDate ? new Date(r.endDate) : null,
         relatedClass: r.subjectName ?? null,
 
         startTime: r.startTime ?? null,
