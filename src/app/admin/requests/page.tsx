@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/simple-toast";
 
 // 거절 사유 입력 모달용
 import {
@@ -99,6 +100,7 @@ export default function AdminRequestsPage() {
   const [viewRejectTarget, setViewRejectTarget] = useState<AdminRequest | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [requests, setRequests] = useState<AdminRequest[]>([]);
+  const { toast } = useToast();
 
 
 
@@ -145,39 +147,66 @@ export default function AdminRequestsPage() {
     const url =
       req.type === "RENTAL"
         ? `${API_BASE}/rental-requests/${req.id}/approve`
-        : `${API_BASE}/facility-reservations/${req.id}/approve`; 
+        : `${API_BASE}/facility-reservations/${req.id}/approve`;
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ status: "APPROVED" }),
+    });
+
+    if (!res.ok) {
+      toast({
+        title: "승인 실패",
+        description: "요청 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "승인 완료",
+      description: "요청이 승인되었습니다.",
     });
 
     setPendingCount(prev => Math.max(prev - 1, 0));
     await fetchRequests(activeTab, typeFilter);
   };
 
-  const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
-    const url =
-      req.type === "RENTAL"
-        ? `${API_BASE}/rental-requests/${req.id}/reject`
-        : `${API_BASE}/facility-reservations/${req.id}/reject`; 
+    const rejectRequestWithReason = async (req: AdminRequest, reason: string) => {
+      const url =
+        req.type === "RENTAL"
+          ? `${API_BASE}/rental-requests/${req.id}/reject`
+          : `${API_BASE}/facility-reservations/${req.id}/reject`;
 
-    await fetch(url, {
-      method: "PATCH",
-      credentials: "include", 
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ reason }),
-    });
+      const res = await fetch(url, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+      });
 
-    setPendingCount(prev => Math.max(prev - 1, 0));
-    await fetchRequests(activeTab, typeFilter);
-  };
+      if (!res.ok) {
+        toast({
+          title: "거절 실패",
+          description: "요청을 거절하는 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "거절 완료",
+        description: `${req.user.name}님의 요청이 거절되었습니다.`,
+      });
+
+      setPendingCount(prev => Math.max(prev - 1, 0));
+      await fetchRequests(activeTab, typeFilter);
+    };
 
   return (
     <div className="space-y-6">
