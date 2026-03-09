@@ -443,11 +443,11 @@ export default function CalendarPage() {
 
     const updateStartDateTime = new Date(
       `${format(editRange.from!, "yyyy-MM-dd")}T${startTime}`
-    );
+    ).toISOString();
 
     const updateEndDateTime = new Date(
       `${format(editRange.to!, "yyyy-MM-dd")}T${endTime}`
-    );
+    ).toISOString();
 
     try {
       const res: Response = await fetch(
@@ -484,11 +484,11 @@ export default function CalendarPage() {
 
     const startDateTime = new Date(
       `${format(startDate!, "yyyy-MM-dd")}T${startTime}`
-    );
+    ).toISOString();
 
     const endDateTime = new Date(
       `${format(endDate!, "yyyy-MM-dd")}T${endTime}`
-    );
+    ).toISOString();
 
     if (
     !selectedUser ||
@@ -502,6 +502,7 @@ export default function CalendarPage() {
     return;
   }
 
+  
   try {
     const res = await fetch(`${API_BASE}/reservations/manual`, {
       method: "POST",
