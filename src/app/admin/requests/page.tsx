@@ -349,13 +349,18 @@ export default function AdminRequestsPage() {
                       {/* 대여 기간 표시 */}
                         {"startDateTime" in req && req.startDateTime && (
                           <div className="text-xs text-muted-foreground">
-                            {format(new Date(req.startDateTime), "yyyy-MM-dd")}
-                            {format(new Date(req.startDateTime), "yyyy-MM-dd") !==
-                              format(new Date(req.endDateTime), "yyyy-MM-dd") && (
-                              <>
-                                {" ~ "}
-                                {format(new Date(req.endDateTime), "yyyy-MM-dd")}
-                              </>
+                            {req.type === "RENTAL" && req.startDateTime && (
+                              (() => {
+                                const start = req.startDateTime.slice(0, 10);
+                                const end = req.endDateTime.slice(0, 10);
+
+                                return (
+                                  <div className="text-xs text-muted-foreground">
+                                    {start}
+                                    {start !== end && <>{" ~ "}{end}</>}
+                                  </div>
+                                );
+                              })()
                             )}
                           </div>
                         )}
