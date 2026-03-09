@@ -63,6 +63,7 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
 
     const data: { role: "ADMIN" | "USER" } = await res.json();
 
+    toast.dismiss();
     toast({
       title: "로그인 성공",
       description: "이동합니다.",
