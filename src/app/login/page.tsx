@@ -36,6 +36,10 @@ export default function LoginPage() {
     },
   });
 
+const {
+  formState: { isSubmitting },
+} = form;
+
 async function onSubmit(values: z.infer<typeof formSchema>) {
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -46,26 +50,25 @@ async function onSubmit(values: z.infer<typeof formSchema>) {
       credentials: "include",
       body: JSON.stringify(values),
     });
-  
 
     if (!res.ok) {
       throw new Error("로그인 실패");
     }
 
-    const data: {
-      role: "ADMIN" | "USER";
-    } = await res.json();
+    const data: { role: "ADMIN" | "USER" } = await res.json();
 
     toast({
       title: "로그인 성공",
-      description: "이동합니다.",
+      description: "대시보드로 이동합니다.",
     });
 
-    if (data.role === "ADMIN") {
-      router.replace("/admin");
-    } else {
-      router.replace("/dashboard");
-    }
+    setTimeout(() => {
+      if (data.role === "ADMIN") {
+        router.replace("/admin");
+      } else {
+        router.replace("/dashboard");
+      }
+    }, 300);
 
   } catch (error) {
     toast({
