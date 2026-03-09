@@ -169,8 +169,8 @@ export default function AdminEquipmentPage() {
           const data = await res.json();
           setReservations(
             data.map((r: any) => {
-              const start = r.startDate.split("T")[0];
-              const end = r.endDate.split("T")[0];
+              const start = r.startDate.slice(0, 10);
+              const end = r.endDate.slice(0, 10);
 
               return {
                 from: new Date(start),
