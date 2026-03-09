@@ -168,10 +168,11 @@ export default function AdminRequestsPage() {
 
     await fetch(url, {
       method: "PATCH",
+      credentials: "include", 
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ status: "REJECTED", reason }),
+      body: JSON.stringify({ reason }),
     });
 
     setPendingCount(prev => Math.max(prev - 1, 0));
