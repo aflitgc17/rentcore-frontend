@@ -380,8 +380,8 @@ export default function MyStatusPage() {
         createdAt: r.createdAt ? new Date(r.createdAt) : null,
 
         // RentalRequest는 from/to
-        startDate: r.from ? new Date(r.from.replace("Z", "")) : null,
-        endDate: r.to ? new Date(r.to.replace("Z", "")) : null,
+        startDate: toDate(r.from),
+        endDate: toDate(r.to),
 
         relatedClass: r.subjectName ?? null,
 
