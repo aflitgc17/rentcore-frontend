@@ -127,11 +127,15 @@ function dayDiffInclusive(a?: Date | null, b?: Date | null): number | null {
 
 
 // ★ 한국식 날짜 표기 (월 일)
-function fmtKDate(d?: Date | null): string {
+function fmtKDateTime(d?: Date | null): string {
   if (!d) return "-";
-  return d.toLocaleDateString("ko-KR", {
+
+  return d.toLocaleString("ko-KR", {
     month: "numeric",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
     timeZone: "Asia/Seoul"
   });
 }
@@ -142,15 +146,15 @@ function fmtKDate(d?: Date | null): string {
 function fmtKRange(a?: Date | null, b?: Date | null): string {
   if (a && b) {
     if (a.getTime() === b.getTime()) {
-      return fmtKDate(a); // 같은 날이면 하나만
+      return fmtKDateTime(a); // 같은 날이면 하나만
     }
     const sameYear = a.getFullYear() === b.getFullYear();
     const toStr = (d: Date) =>
-      sameYear ? fmtKDate(d) : `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+      sameYear ? fmtKDateTime(d) : `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
     return `${toStr(a)} ~ ${toStr(b)}`;
   }
-  if (a) return fmtKDate(a);
-  if (b) return fmtKDate(b);
+  if (a) return fmtKDateTime(a);
+  if (b) return fmtKDateTime(b);
   return "-";
 }
 
@@ -561,8 +565,9 @@ export default function MyStatusPage() {
                             <Clock className="w-4 h-4 text-muted-foreground" />
                             <strong>대여기간:</strong>{" "}
                             {rental.startDate && rental.endDate
-                              ? `${fmtKDate(rental.startDate)} ${rental.startTime ?? ""} 
-                                ~ ${fmtKDate(rental.endDate)} ${rental.endTime ?? ""}`
+                              ? `${fmtKDateTime(rental.startDate)}
+                                    ~
+                                    ${fmtKDateTime(rental.endDate)}`
                               : "-"}
                           </div>
                         </div>
