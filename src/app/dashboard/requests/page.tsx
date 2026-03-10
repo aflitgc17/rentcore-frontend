@@ -136,7 +136,7 @@ function fmtKDateTime(d?: Date | null): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Asia/Seoul"
+    // timeZone: "Asia/Seoul"
   });
 }
 
