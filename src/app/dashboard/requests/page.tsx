@@ -565,9 +565,7 @@ export default function MyStatusPage() {
                             <Clock className="w-4 h-4 text-muted-foreground" />
                             <strong>대여기간:</strong>{" "}
                             {rental.startDate && rental.endDate
-                              ? `${fmtKDateTime(rental.startDate)}
-                                    ~
-                                    ${fmtKDateTime(rental.endDate)}`
+                              ? `${fmtKDateTime(rental.startDate)} ~ ${fmtKDateTime(rental.endDate)}`
                               : "-"}
                           </div>
                         </div>
