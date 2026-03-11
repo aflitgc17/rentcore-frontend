@@ -129,14 +129,14 @@ function dayDiffInclusive(a?: Date | null, b?: Date | null): number | null {
 function fmtKDateTime(d?: Date | null): string {
   if (!d) return "-";
 
-  return d.toLocaleString("ko-KR", {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Asia/Seoul"
-  });
+  }).format(d);
 }
 
 // ★ 범위 표기: "M월 D일 ~ M월 D일"
