@@ -103,7 +103,7 @@ function fmtCompactDate(d?: Date | null): string {
 
 function toDate(v: unknown): Date | null {
   if (!v) return null;
-  const d = new Date(String(v)); // Z 유지
+  const d = new Date(v as any); // Z 유지
   return isNaN(d.getTime()) ? null : d;
 }
 
