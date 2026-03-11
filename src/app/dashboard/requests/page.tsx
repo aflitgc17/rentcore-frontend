@@ -341,12 +341,9 @@ export default function MyStatusPage() {
             managementNumber: it.equipment?.managementNumber ?? "-",
           },
         })),
-        createdAt: r.rentalRequest?.createdAt
-          ? new Date(r.rentalRequest.createdAt)
-          : (r.createdAt ? new Date(r.createdAt) : null),
-
-        startDate: r.startDate ? new Date(r.startDate) : null,
-        endDate: r.endDate ? new Date(r.endDate) : null,
+        createdAt: toDate(r.rentalRequest?.createdAt ?? r.createdAt),
+        startDate: toDate(r.startDate),
+        endDate: toDate(r.endDate),
         relatedClass: r.subjectName ?? null,
 
         startTime: r.startTime ?? null,
