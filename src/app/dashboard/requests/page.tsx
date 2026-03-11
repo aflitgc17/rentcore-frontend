@@ -373,7 +373,7 @@ export default function MyStatusPage() {
             managementNumber: it.equipment?.managementNumber ?? "-",
           },
         })),
-        createdAt: r.createdAt ? new Date(r.createdAt) : null,
+        createdAt: toDate(r.createdAt),
 
         // RentalRequest는 from/to
         startDate: toDate(r.from),
