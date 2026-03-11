@@ -427,11 +427,11 @@ export default function MyStatusPage() {
         id: String(f.id),
         facility: f.facility?.name ?? f.facility ?? "시설",
         createdAt: f.createdAt ? new Date(f.createdAt) : null,
-        date: f.date ? new Date(f.date) : null,
+        date: toDate(f.date),
         startTime: f.startTime ?? null,
         endTime: f.endTime ?? null,
-        start: f.startAt ? new Date(f.startAt) : (f.start ? new Date(f.start) : null),
-        end: f.endAt ? new Date(f.endAt) : (f.end ? new Date(f.end) : null),
+        start: toDate(f.startAt ?? f.start),
+        end: toDate(f.endAt ?? f.end),
         purpose: f.purpose ?? null,
         status: (String(f.status).toUpperCase() as FacilityStatus) ?? "REQUESTED",
         team: f.team ?? [],
@@ -656,11 +656,11 @@ export default function MyStatusPage() {
                                 {" -- "}
 
                                 {/* 시간 */}
-                                {reservation.startTime && reservation.endTime
-                                  ? `${reservation.startTime} ~ ${reservation.endTime}`
-                                  : reservation.start && reservation.end
-                                  ? `${reservation.start.toTimeString().slice(0,5)} ~ ${reservation.end.toTimeString().slice(0,5)}`
-                                  : ""}
+                                {reservation.start && reservation.end
+                                  ? `${fmtKDateTime(reservation.start)} ~ ${fmtKDateTime(reservation.end)}`
+                                  : reservation.date && reservation.startTime
+                                  ? `${fmtDate(reservation.date)} ${reservation.startTime} ~ ${reservation.endTime}`
+                                  : "-"}
                             </div>
                           </div>
 
