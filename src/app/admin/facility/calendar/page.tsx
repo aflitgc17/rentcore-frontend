@@ -155,6 +155,7 @@ export default function FacilityCalendarPage() {
       `${API_BASE}/facility-reservations/${clickedReservation.id}`,
       {
         method: "PUT",
+        credentials: "include", 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           startAt: start,
