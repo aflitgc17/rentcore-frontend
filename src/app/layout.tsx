@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RentCore",
+  title: "영화영상학과 장비 키오스크",
   description: "Sunmoon University equipment rental system",
 };
 
