@@ -135,7 +135,7 @@ function fmtKDateTime(d?: Date | null): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Asia/Seoul"
+    // timeZone: "Asia/Seoul"
   });
 }
 
@@ -425,7 +425,7 @@ export default function MyStatusPage() {
       const facilityList: FacilityReservation[] = facilities.map((f: any) => ({
         id: String(f.id),
         facility: f.facility?.name ?? f.facility ?? "시설",
-        createdAt: f.createdAt ? new Date(f.createdAt) : null,
+        createdAt: toDate(f.createdAt),
         date: toDate(f.date),
         startTime: f.startTime ?? null,
         endTime: f.endTime ?? null,
