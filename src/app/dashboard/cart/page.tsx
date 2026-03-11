@@ -259,6 +259,8 @@ export default function CartPage() {
       setCheckingConflict(true);
 
       const equipmentIds = cartItems.map((it) => it.id);
+      const fromDate = new Date(`${format(startDate!, "yyyy-MM-dd")}T${startTime}:00`);
+      const toDate = new Date(`${format(endDate!, "yyyy-MM-dd")}T${endTime}:00`);
 
       const res = await fetch(`${API_BASE}/rental-requests/conflicts`, {
         method: "POST",
@@ -266,8 +268,8 @@ export default function CartPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           equipmentIds,
-          from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
-          to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
+          from: fromDate.toISOString(),
+          to: toDate.toISOString(),
         }),
       });
 
@@ -329,6 +331,9 @@ export default function CartPage() {
 
       // 기간 겹침 검사
       const equipmentIds = cartItems.map((it) => it.id);
+      const fromDate = new Date(`${format(startDate!, "yyyy-MM-dd")}T${startTime}:00`);
+      const toDate = new Date(`${format(endDate!, "yyyy-MM-dd")}T${endTime}:00`);
+
       const res = await fetch(
         `${API_BASE}/rental-requests/conflicts`,
         {
@@ -339,8 +344,8 @@ export default function CartPage() {
             },
             body: JSON.stringify({
             equipmentIds,
-            from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
-            to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
+            from: fromDate.toISOString(),
+            to: toDate.toISOString(),
             }),
         }
         );
@@ -348,6 +353,7 @@ export default function CartPage() {
       const conflicts = await res.json();
 
 
+      
       if (conflicts.length > 0) {
         const names = cartItems
           .filter((it) => conflicts.includes(it.id))
@@ -361,6 +367,8 @@ export default function CartPage() {
         return;
       }
 
+    
+
     await fetch(`${API_BASE}/rental-requests`, {
         method: "POST",
         credentials: "include",
@@ -368,8 +376,8 @@ export default function CartPage() {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            from: `${format(startDate!, "yyyy-MM-dd")}T${startTime}`,
-            to: `${format(endDate!, "yyyy-MM-dd")}T${endTime}`,
+            from: fromDate.toISOString(),
+            to: toDate.toISOString(),
             subjectName,     
             purpose,        
             items: cartItems.map((item) => ({
