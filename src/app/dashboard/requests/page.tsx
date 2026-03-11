@@ -103,8 +103,7 @@ function fmtCompactDate(d?: Date | null): string {
 
 function toDate(v: unknown): Date | null {
   if (!v) return null;
-  const s = String(v).replace("Z", "");  // ← UTC 제거
-  const d = new Date(s);
+  const d = new Date(String(v)); // Z 유지
   return isNaN(d.getTime()) ? null : d;
 }
 
