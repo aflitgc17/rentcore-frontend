@@ -517,6 +517,10 @@ export default function CalendarPage() {
       }),
     });
 
+    const data = await res.json().catch(() => ({}));
+    console.log("manual 응답:", res.status, data);
+
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message);
