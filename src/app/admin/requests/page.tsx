@@ -161,6 +161,8 @@ export default function AdminRequestsPage() {
       },
     });
 
+    const data = await res.json(); 
+
     setProcessingId(null);
 
     if (!res.ok) {
