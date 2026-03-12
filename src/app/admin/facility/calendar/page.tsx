@@ -202,7 +202,7 @@ export default function FacilityCalendarPage() {
       const data = await res.json();
 
       const approved = data.filter(
-        (r: any) => r.status === "APPROVED" || r.status === "REQUESTED"
+        (r: any) => r.status === "APPROVED"
       );
 
       const grouped: Record<string, any[]> = {};
