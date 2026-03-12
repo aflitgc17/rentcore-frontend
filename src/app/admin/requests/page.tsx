@@ -453,7 +453,8 @@ export default function AdminRequestsPage() {
             <div className="p-3 border rounded bg-muted/30 whitespace-pre-wrap">
               {viewRejectTarget?.rejectionReason 
                 ?? (viewRejectTarget as any)?.rejectReason 
-                ?? "거절 사유 없음"}
+                // ?? "거절 사유 없음"
+                }
             </div>
           </div>
 

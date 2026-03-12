@@ -911,13 +911,13 @@ export default function CalendarPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">대출 기간</p>
                   <p className="font-medium">
-                    {clickedEvent.extendedProps?.rawFrom
-                      ?.replace("T", " ")
-                      ?.slice(0, 16)}{" "}
-                    ~{" "}
-                    {clickedEvent.extendedProps?.rawTo
-                      ?.replace("T", " ")
-                      ?.slice(0, 16)}
+                    {clickedEvent.extendedProps?.rawFrom &&
+                      format(new Date(clickedEvent.extendedProps.rawFrom), "yyyy-MM-dd HH:mm")}
+
+                    {" ~ "}
+
+                    {clickedEvent.extendedProps?.rawTo &&
+                      format(new Date(clickedEvent.extendedProps.rawTo), "yyyy-MM-dd HH:mm")}
                   </p>
                 </div>
 
